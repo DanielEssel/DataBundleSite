@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +27,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script src="https://js.paystack.co/v1/inline.js" strategy="beforeInteractive" />
-        <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
