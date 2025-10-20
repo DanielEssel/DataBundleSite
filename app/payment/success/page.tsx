@@ -1,24 +1,18 @@
+// app/payment/success/page.tsx
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
+import SuccessPageContent from "@/components/SuccessPageContent";
 
 export default function SuccessPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const reference = searchParams.get("ref");
-
+  // ✅ Wrap the component that calls useSearchParams in Suspense
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-green-50 text-center px-6">
-      <h1 className="text-3xl font-bold text-green-700 mb-2">✅ Payment Successful</h1>
-      <p className="text-gray-700 mb-6">
-        Your data purchase was successful. Reference: <span className="font-semibold">{reference}</span>
-      </p>
-      <button
-        onClick={() => router.push("/bundles")}
-        className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
-      >
-        Back to Bundles
-      </button>
-    </div>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Loading payment details...
+      </div>
+    }>
+      <SuccessPageContent />
+    </Suspense>
   );
 }
