@@ -1,6 +1,6 @@
 "use client";
 
-import { PaystackButton } from "react-paystack";
+import React from "react";
 
 interface PayButtonProps {
   email: string;
@@ -17,48 +17,32 @@ export default function PayButton({
   network,
   plan,
 }: PayButtonProps) {
-  const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? "";
+  const handlePay = async () => {
+    try {
+      // 1️⃣ Call your backend to initialize the transaction
+      const res = await fetch("/api/initiate-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, amount, phone, network, plan }),
+      });
 
-  const componentProps = {
-    email,
-    amount: amount * 100, // convert GHS → pesewas
-    publicKey,
-    text: `Pay ₵${amount}`,
-    metadata: {
-      custom_fields: [
-        {
-          display_name: "Phone Number",
-          variable_name: "phone_number",
-          value: phone,
-        },
-        {
-          display_name: "Network",
-          variable_name: "network",
-          value: network,
-        },
-        {
-          display_name: "Data Plan",
-          variable_name: "plan",
-          value: plan,
-        },
-      ],
-    },
-    onSuccess: (reference: any) => {
-      console.log("✅ Payment successful:", reference);
-      alert("Payment successful! Reference: " + reference.reference);
-      // Optionally: call backend API to verify payment
-    },
-    onClose: () => {
-      console.log("❌ Payment window closed");
-    },
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Payment init failed");
+
+      // 2️⃣ Redirect user to Paystack checkout page
+      window.location.href = data.authorization_url;
+    } catch (error: any) {
+      console.error("Payment init error:", error);
+      alert("Error initializing payment. Please try again.");
+    }
   };
 
   return (
-    <div>
-      <PaystackButton
-        {...componentProps}
-        className="bg-blue-600 text-white w-full py-2.5 rounded-lg hover:bg-blue-700 transition font-medium"
-      />
-    </div>
+    <button
+      onClick={handlePay}
+      className="bg-blue-600 text-white w-full py-2.5 rounded-lg hover:bg-blue-700 transition font-medium"
+    >
+      Pay ₵{amount}
+    </button>
   );
 }
