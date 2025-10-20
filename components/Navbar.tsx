@@ -26,8 +26,8 @@ export default function Navbar() {
           <Link href="/how-it-works" className="hover:text-blue-600 transition">
             How It Works
           </Link>
-          <Link href="/networks" className="hover:text-blue-600 transition">
-            Networks
+          <Link href="/bundles" className="hover:text-blue-600 transition">
+            Bundles
           </Link>
         </nav>
 
@@ -69,8 +69,8 @@ export default function Navbar() {
             <Link href="#how-it-works" onClick={() => setMenuOpen(false)}>
               How It Works
             </Link>
-            <Link href="#networks" onClick={() => setMenuOpen(false)}>
-              Networks
+            <Link href="/bundles" onClick={() => setMenuOpen(false)}>
+              Bundles
             </Link>
 
             <div className="flex space-x-4 pt-4">
