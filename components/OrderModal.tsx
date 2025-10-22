@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Phone, CreditCard, Shield, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Phone,
+  CreditCard,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!;
@@ -55,13 +61,7 @@ export default function OrderModal({
     }
 
     const tryOrder = async (paymentMethod: string) => {
-      const payload = {
-        bundleId,
-        recipientPhone,
-        paymentMethod,
-      };
-
-      console.log("🧾 Sending Order Payload:", payload);
+      const payload = { bundleId, recipientPhone, paymentMethod };
 
       const res = await fetch(`${API_URL}/api/orders`, {
         method: "POST",
@@ -73,23 +73,18 @@ export default function OrderModal({
       });
 
       const data = await res.json();
-      console.log("📦 Order Response:", res.status, data);
       return { res, data };
     };
 
     try {
       setLoading(true);
-
-      // 1️⃣ First attempt with "paystack"
       let { res, data } = await tryOrder("paystack");
 
-      // 2️⃣ If validation fails, retry with "card"
       if (
         res.status === 400 &&
         data?.error?.includes("paymentMethod") &&
         data?.error?.includes("enum")
       ) {
-        console.warn("⚠️ Backend rejected 'paystack'. Retrying with 'card'...");
         ({ res, data } = await tryOrder("card"));
       }
 
@@ -105,23 +100,13 @@ export default function OrderModal({
         throw new Error(data.message || "Failed to create order.");
       }
 
-      // ✅ Extract payment info
       const paymentUrl = data.data?.payment?.authorizationUrl;
-      const reference = data.data?.payment?.reference;
-      const orderId = data.data?.order?._id;
-
       if (!paymentUrl) throw new Error("Missing payment URL from server.");
 
       setMessage("Order created successfully! Redirecting to payment...");
       setMessageType("success");
-      console.log("🔗 Redirecting to:", paymentUrl);
-
-      // Redirect to Paystack payment
-      setTimeout(() => {
-        window.location.href = paymentUrl;
-      }, 1000);
+      setTimeout(() => (window.location.href = paymentUrl), 1200);
     } catch (error: any) {
-      console.error("❌ Error creating order:", error);
       setMessage(error.message || "Something went wrong. Please try again.");
       setMessageType("error");
     } finally {
@@ -131,71 +116,71 @@ export default function OrderModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="p-0 max-w-md overflow-hidden border-none shadow-2xl">
-        {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-yellow-600 to-pink-600 p-6 text-white">
+      <DialogContent className="p-0 max-w-md overflow-hidden border-none shadow-2xl rounded-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               Complete Your Purchase
             </DialogTitle>
-            <p className="text-white text-sm mt-2">
-              You're one step away from activating your bundle
+            <p className="text-white/90 text-sm mt-1">
+              You’re one step away from activating your bundle
             </p>
           </DialogHeader>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Bundle Summary Card */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm text-gray-600 font-medium">Bundle</span>
+        <div className="p-6 space-y-6 bg-white">
+          {/* Bundle Summary */}
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-blue-700 font-medium">
+                Bundle Name
+              </span>
               <span className="text-sm font-semibold text-gray-900">
                 {bundleName}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Amount</span>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-sm text-blue-700 font-medium">Amount</span>
+              <span className="text-2xl font-bold text-blue-600">
                 ₵{price.toFixed(2)}
               </span>
             </div>
           </div>
 
-          {/* Phone Input */}
+          {/* Recipient Phone */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Phone className="w-4 h-4 text-blue-600" />
               Recipient Phone Number
             </label>
-            <div className="relative">
-              <Input
-                type="tel"
-                placeholder="e.g. +233557424675"
-                value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
-                className="pl-4 pr-4 py-6 text-base border-2 border-gray-200 focus:border-blue-500 rounded-xl transition-all"
-              />
-            </div>
+            <Input
+              type="tel"
+              placeholder="e.g. +233557424675"
+              value={recipientPhone}
+              onChange={(e) => setRecipientPhone(e.target.value)}
+              className="border-2 border-gray-200 focus:border-blue-500 py-5 text-base rounded-xl transition-all"
+            />
             <p className="text-xs text-gray-500 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
-              Enter the phone number that will receive the data bundle
+              Enter the phone number that will receive the data bundle.
             </p>
           </div>
 
-          {/* Security Badge */}
-          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
-            <Shield className="w-5 h-5 text-green-600 flex-shrink-0" />
+          {/* Secure Payment Notice */}
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+            <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-green-900">
+              <p className="text-xs font-semibold text-blue-800">
                 Secure Payment
               </p>
-              <p className="text-xs text-green-700">
+              <p className="text-xs text-blue-700">
                 Protected by Paystack encryption
               </p>
             </div>
           </div>
 
-          {/* Message Alert */}
+          {/* Message Feedback */}
           {message && (
             <div
               className={`flex items-start gap-3 p-4 rounded-xl border ${
@@ -205,9 +190,9 @@ export default function OrderModal({
               }`}
             >
               {messageType === "success" ? (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
               )}
               <p
                 className={`text-sm font-medium ${
@@ -219,20 +204,20 @@ export default function OrderModal({
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Buttons */}
           <div className="flex gap-3 pt-2">
             <Button
               onClick={onClose}
               disabled={loading}
               variant="outline"
-              className="flex-1 py-6 text-base font-semibold border-2 hover:bg-gray-50"
+              className="flex-1 py-5 text-base font-semibold border-2 hover:bg-blue-50 text-blue-700 border-blue-200"
             >
               Cancel
             </Button>
             <Button
               onClick={handleOrder}
               disabled={loading || !recipientPhone}
-              className="flex-1 py-6 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
+              className="flex-1 py-5 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
             >
               {loading ? (
                 <div className="flex items-center gap-2">

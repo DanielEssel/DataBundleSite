@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import OrderModal from "@/components/OrderModal";
-import { motion } from "framer-motion";
-import { Loader2, Wifi, CreditCard } from "lucide-react";
+import { Loader2, Wifi, CreditCard, AlertCircle } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// Fetch bundle by ID
+// Helper function: Fetch bundle details by ID
 async function getBundleById(id: string) {
   try {
     const res = await fetch(`${API_URL}/api/bundles/${id}`, { cache: "no-store" });
@@ -28,7 +28,7 @@ export default function BundleDetailsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch bundle on mount
+  // Fetch bundle when component mounts
   useEffect(() => {
     async function fetchBundle() {
       const id = params?.id as string;
@@ -40,67 +40,86 @@ export default function BundleDetailsPage() {
     fetchBundle();
   }, [params]);
 
-  if (loading)
+  // 🔄 Loading State
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500">
-        <Loader2 className="animate-spin w-8 h-8 mb-3 text-blue-600" />
-        <p>Loading bundle details...</p>
-      </div>
+      <section className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-600 text-lg">Loading bundle details...</p>
+      </section>
     );
+  }
 
-  if (!bundle)
+  // ⚠️ Error State
+  if (!bundle) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600">
-        Failed to load bundle details.
-      </div>
+      <section className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-50 to-white">
+        <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
+        <p className="text-red-600 text-lg font-medium">
+          Failed to load bundle details.
+        </p>
+      </section>
     );
+  }
 
+  // ✅ Main Layout
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 flex flex-col items-center">
+    <section className="min-h-screen flex items-center justify-center px-6 py-20 bg-gradient-to-br from-blue-50 via-white to-blue-100 relative overflow-hidden">
+      {/* Decorative glow */}
+      <div className="absolute -top-40 -right-40 w-[450px] h-[450px] bg-blue-300 rounded-full blur-3xl opacity-20" />
+      <div className="absolute -bottom-40 -left-40 w-[450px] h-[450px] bg-purple-300 rounded-full blur-3xl opacity-20" />
+
       <motion.div
         initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-3xl shadow-lg p-8 w-full max-w-md relative overflow-hidden"
+        transition={{ duration: 0.5 }}
+        className="relative z-10 w-full max-w-md bg-white/80 backdrop-blur-2xl border border-white/30 rounded-3xl shadow-2xl p-8"
       >
-        {/* Decorative gradient corner */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-200 opacity-30 rounded-full blur-3xl" />
-
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-5">
-            <Wifi className="w-8 h-8 text-blue-600" />
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <div className="bg-blue-100 p-4 rounded-full">
+              <Wifi className="w-10 h-10 text-blue-600" />
+            </div>
           </div>
-
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">{bundle.name}</h1>
-          <p className="text-gray-600 mb-4 max-w-sm">
+          <h1 className="text-3xl font-bold text-gray-900">{bundle.name}</h1>
+          <p className="text-gray-600 mt-2 text-sm">
             {bundle.description || "Stay connected with our reliable data plan."}
           </p>
-
-          <div className="flex justify-between items-center bg-gray-50 rounded-2xl w-full py-3 px-5 mb-6 border border-gray-100">
-            <p className="font-medium text-gray-700">
-              <span className="text-gray-500">Data:</span> {bundle.dataAmount}
-            </p>
-            <p className="text-2xl font-bold text-blue-600">₵{bundle.price}</p>
-          </div>
-
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 text-lg shadow-md hover:shadow-lg transition-all"
-          >
-            <CreditCard className="w-5 h-5" />
-            Buy Now
-          </Button>
         </div>
+
+        {/* Bundle Details */}
+        <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-gray-600 font-medium">Data</span>
+            <span className="text-gray-900 font-semibold">{bundle.dataAmount}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 font-medium">Price</span>
+            <span className="text-blue-700 text-2xl font-bold">
+              ₵{bundle.price}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+        >
+          <CreditCard className="w-5 h-5" />
+          Buy Now
+        </Button>
       </motion.div>
 
       {/* Order Modal */}
-      <OrderModal
+     <OrderModal
         bundleId={bundle._id}
         bundleName={bundle.name}
         price={bundle.price}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-    </div>
+    </section>
   );
 }
