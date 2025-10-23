@@ -17,35 +17,30 @@ export default function VerifyPaymentPage() {
   // Animate the progress bar
   useEffect(() => {
     if (status !== "loading") return;
-
     const interval = setInterval(() => {
       setProgress((prev) => (prev < 90 ? prev + 10 : prev));
     }, 300);
-
     return () => clearInterval(interval);
   }, [status]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const reference = searchParams.get("reference");
-
-    // Check if user is logged in
-    if (!token) {
-      setStatus("failed");
-      setMessage("You must be logged in to verify payments.");
-      return;
-    }
-
-    // Check if reference exists
+    const reference = searchParams.get("reference") || searchParams.get("trxref");
     if (!reference) {
       setStatus("failed");
       setMessage("No payment reference found in the URL.");
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setStatus("failed");
+      setMessage("You must be logged in to verify payments.");
+      return;
+    }
+
     const verifyPayment = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/payments/verify/${reference}`, {
+        const res = await fetch(`${API_URL}/api/payment/verify/${reference}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -53,14 +48,6 @@ export default function VerifyPaymentPage() {
 
         const data = await res.json();
         console.log("🔍 Payment verification response:", data);
-
-        if (res.status === 401) {
-          // Token invalid or expired
-          localStorage.removeItem("token");
-          setStatus("failed");
-          setMessage("Session expired. Please login again.");
-          return;
-        }
 
         if (!res.ok || !data.success) {
           throw new Error(data.message || "Payment verification failed.");
@@ -70,9 +57,8 @@ export default function VerifyPaymentPage() {
         setStatus("success");
         setMessage("✅ Payment verified successfully! Redirecting...");
 
-        setTimeout(() => {
-          router.push("/orders");
-        }, 3000);
+        // Redirect after 3 seconds
+        setTimeout(() => router.push("/orders"), 3000);
       } catch (error: any) {
         console.error("❌ Verification error:", error);
         setStatus("failed");
