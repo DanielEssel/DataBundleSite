@@ -43,12 +43,22 @@ export default function VerifyPaymentPage() {
         const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
           method: "POST",
           headers: {
-            "Content-Type" : "application/json",
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const data = await res.json();
+        // Check if response is JSON before parsing
+        const contentType = res.headers.get("content-type");
+        let data: any;
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          console.error("Unexpected server response:", text);
+          throw new Error("Payment verification failed. Server returned invalid response.");
+        }
+
         console.log("🔍 Payment verification response:", data);
 
         if (!res.ok || !data.success) {
@@ -59,7 +69,6 @@ export default function VerifyPaymentPage() {
         setStatus("success");
         setMessage("✅ Payment verified successfully! Redirecting...");
 
-        // Redirect after 3 seconds
         setTimeout(() => router.push("/orders"), 3000);
       } catch (error: any) {
         console.error("❌ Verification error:", error);
