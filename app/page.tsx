@@ -1,6 +1,5 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
 import StepsSection from "@/components/StepsSection";
 import AvailableNetworks from "@/components/AvailableNetworks";
 import HeroSection from "@/components/Hero";
