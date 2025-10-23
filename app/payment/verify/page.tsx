@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 /**
  * Payment metadata structure
@@ -33,8 +33,8 @@ interface VerificationResponse {
 }
 
 export default function PaymentVerificationPage() {
-  const params = useParams();
-  const reference = params.reference as string;
+  const searchParams = useSearchParams();
+  const reference = searchParams.get("reference") || "";
 
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ export default function PaymentVerificationPage() {
       }
 
       // Get token from localStorage (or your auth system)
-      const token = localStorage.getItem("authToken"); // Must be backend API token
+      const token = localStorage.getItem("authToken");
       if (!token) {
         setError("No authentication token found.");
         setLoading(false);
@@ -58,7 +58,6 @@ export default function PaymentVerificationPage() {
 
       const API_URL = "https://bundle-api-w6yw.onrender.com";
 
-  
       try {
         const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
           method: "GET",
@@ -165,7 +164,9 @@ export default function PaymentVerificationPage() {
       <div className="bg-white border rounded-lg shadow p-6 space-y-6">
         <div className="text-center bg-gray-100 p-4 rounded-lg">
           <div className="text-sm text-gray-500">Amount Paid</div>
-          <div className="text-3xl font-bold text-green-600">{formatAmount(paymentData.amount, paymentData.currency)}</div>
+          <div className="text-3xl font-bold text-green-600">
+            {formatAmount(paymentData.amount, paymentData.currency)}
+          </div>
         </div>
 
         <div>
@@ -179,12 +180,15 @@ export default function PaymentVerificationPage() {
         </div>
 
         <div>
-          <strong className="text-gray-500">Payment Date:</strong> {formatDate(paymentData.paidAt)}
+          <strong className="text-gray-500">Payment Date:</strong>{" "}
+          {formatDate(paymentData.paidAt)}
         </div>
 
         {paymentData.metadata && (
           <details className="mt-4 p-4 bg-gray-100 rounded-lg">
-            <summary className="cursor-pointer font-semibold text-blue-600">📋 View Metadata</summary>
+            <summary className="cursor-pointer font-semibold text-blue-600">
+              📋 View Metadata
+            </summary>
             <div className="mt-4 space-y-2 text-gray-700">
               <div><strong>Order ID:</strong> {paymentData.metadata.orderId}</div>
               <div><strong>Bundle ID:</strong> {paymentData.metadata.bundleId}</div>
@@ -194,8 +198,18 @@ export default function PaymentVerificationPage() {
         )}
 
         <div className="flex gap-4 justify-center mt-6">
-          <button onClick={() => window.print()} className="px-6 py-2 bg-gray-500 text-white rounded-lg font-semibold">Print Receipt</button>
-          <button onClick={() => (window.location.href = "/")} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold">Continue Shopping</button>
+          <button
+            onClick={() => window.print()}
+            className="px-6 py-2 bg-gray-500 text-white rounded-lg font-semibold"
+          >
+            Print Receipt
+          </button>
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+          >
+            Continue Shopping
+          </button>
         </div>
       </div>
     </div>
