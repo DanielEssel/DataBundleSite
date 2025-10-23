@@ -119,7 +119,7 @@ export default function PaymentVerificationPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-white text-center">
         <img
-          src="/logo.png"
+          src="/logos/acdatalogo.png"
           alt="AC Data Hub Logo"
           className="w-20 h-20 mb-4"
         />
