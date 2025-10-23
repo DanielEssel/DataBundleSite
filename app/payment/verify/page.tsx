@@ -40,17 +40,18 @@ export default function VerifyPaymentPage() {
 
     const verifyPayment = async () => {
       try {
-        const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
+        const res = await fetch(`${API_URL}/payment/verify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({ reference }), 
         });
 
-        // Check if response is JSON before parsing
         const contentType = res.headers.get("content-type");
         let data: any;
+
         if (contentType && contentType.includes("application/json")) {
           data = await res.json();
         } else {
@@ -69,6 +70,7 @@ export default function VerifyPaymentPage() {
         setStatus("success");
         setMessage("✅ Payment verified successfully! Redirecting...");
 
+        // Redirect after 3 seconds
         setTimeout(() => router.push("/orders"), 3000);
       } catch (error: any) {
         console.error("❌ Verification error:", error);
