@@ -15,12 +15,11 @@ interface BundleHeroProps {
 }
 
 const BundleHero: React.FC<BundleHeroProps> = ({ stats }) => {
-  const { total, active, networks, offsetY } = stats;
-
+  const { total, active, networks } = stats;
   const networkLogos = ["MTN", "Telecel", "AirtelTigo", "Vodafone"];
 
   return (
-    <section className="relative w-full bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 text-white overflow-hidden">
+    <section className="relative w-full bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 text-white overflow-hidden py-20">
       {/* Decorative Background */}
       <svg
         className="absolute top-0 left-0 w-full h-full opacity-10"
@@ -35,50 +34,52 @@ const BundleHero: React.FC<BundleHeroProps> = ({ stats }) => {
         />
       </svg>
 
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-6 py-16 flex flex-col md:flex-row items-center justify-between gap-10">
-        {/* Left */}
-        <div className="flex-1 flex flex-col gap-5">
-          <h1 className="text-4xl md:text-5xl font-extrabold flex items-center gap-3">
-            <Signal className="w-8 h-8 text-yellow-400 animate-pulse" />
-            Data Bundles
+      <div className="relative z-10 container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
+        {/* Left Section */}
+        <div className="flex-1 flex flex-col gap-6">
+          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight">
+            <span className="flex items-center gap-3">
+              <Signal className="w-10 h-10 text-yellow-400 animate-pulse" />
+              Fast & Reliable Data Bundles
+            </span>
           </h1>
-          <p className="text-white/80 text-lg max-w-md">
-            Discover the best data bundles across all major networks. Fast, reliable, and affordable.
+          <p className="text-white/80 text-lg md:text-xl max-w-lg">
+            Discover affordable and seamless data plans across all major networks. Choose the right bundle for your needs and stay connected.
           </p>
 
           {/* Stats Cards */}
-          <div className="mt-6 flex flex-wrap gap-4">
-            <StatCard icon={<Signal className="w-5 h-5 text-yellow-400 mb-1" />} value={total} label="Total" />
-            <StatCard icon={<Wifi className="w-5 h-5 text-blue-400 mb-1" />} value={active} label="Active" />
-            <StatCard icon={<BarChart2 className="w-5 h-5 text-purple-400 mb-1" />} value={networks} label="Networks" />
+          <div className="mt-8 flex flex-wrap gap-6">
+            <StatCard icon={<Signal className="w-6 h-6 text-yellow-400 mb-1" />} value={total} label="Total Bundles" />
+            <StatCard icon={<Wifi className="w-6 h-6 text-blue-400 mb-1" />} value={active} label="Active Bundles" />
+            <StatCard icon={<BarChart2 className="w-6 h-6 text-purple-400 mb-1" />} value={networks} label="Networks Supported" />
+          </div>
+
+          {/* Network Logos */}
+          <div className="mt-8 flex flex-wrap gap-4">
+            {networkLogos.map((network) => (
+              <motion.span
+                key={network}
+                className="px-5 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white font-semibold hover:bg-white/20 transition"
+                whileHover={{ scale: 1.05 }}
+              >
+                {network}
+              </motion.span>
+            ))}
           </div>
         </div>
 
-        {/* Right */}
+        {/* Right Section - Illustration or Graphic */}
         <motion.div
-          className="flex-1 flex justify-center md:justify-end"
-          style={{ transform: `translateY(${offsetY * 0.03}px)` }}
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
+          className="flex-1 hidden md:flex justify-center"
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 1 }}
         >
-          <PhoneIllustration />
+          {/* Professional Graphic Placeholder */}
+          <div className="w-96 h-96 bg-white/10 rounded-3xl border border-white/20 flex items-center justify-center">
+            <span className="text-white/70 text-lg">Your Illustration Here</span>
+          </div>
         </motion.div>
-      </div>
-
-      {/* Network Logos */}
-      <div className="relative z-10 flex justify-center gap-6 py-4 border-t border-white/20 overflow-x-auto scrollbar-hide">
-        {networkLogos.map((network, i) => (
-          <motion.span
-            key={network}
-            className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white font-semibold whitespace-nowrap hover:bg-white/20 transition"
-            whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.2)" }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            {network}
-          </motion.span>
-        ))}
       </div>
     </section>
   );
@@ -89,31 +90,14 @@ const BundleHero: React.FC<BundleHeroProps> = ({ stats }) => {
 // ==============================
 const StatCard: React.FC<{ icon: React.ReactNode; value: number; label: string }> = ({ icon, value, label }) => (
   <motion.div
-    className="bg-white/10 backdrop-blur-md rounded-2xl px-5 py-3 flex flex-col items-center min-w-[110px] hover:bg-white/20 cursor-pointer"
+    className="bg-white/10 backdrop-blur-md rounded-2xl px-6 py-4 flex flex-col items-center min-w-[130px] hover:bg-white/20 cursor-pointer"
     whileHover={{ scale: 1.05 }}
     transition={{ type: "spring", stiffness: 300 }}
   >
     {icon}
-    <span className="text-2xl font-bold mt-1">{value}</span>
-    <span className="text-xs text-white/80">{label}</span>
+    <span className="text-2xl font-bold mt-2">{value}</span>
+    <span className="text-sm text-white/80 mt-1 text-center">{label}</span>
   </motion.div>
-);
-
-const PhoneIllustration: React.FC = () => (
-  <div className="relative w-44 h-72">
-    <div className="w-full h-full bg-gray-900 rounded-3xl border-2 border-gray-800 shadow-xl flex flex-col overflow-hidden">
-      {/* Screen */}
-      <div className="flex-1 bg-gradient-to-br from-blue-400 to-cyan-400 p-4 flex flex-col justify-center items-center gap-2 rounded-xl">
-        <div className="bg-white w-7 h-7 rounded-full flex items-center justify-center text-xs animate-bounce">📶</div>
-        <div className="text-white font-extrabold text-2xl">5GB</div>
-        <div className="text-white/90 text-sm">Select Bundle</div>
-      </div>
-      {/* Bottom Button */}
-      <button className="w-full bg-yellow-400 text-gray-900 font-bold py-2 hover:bg-yellow-500 transition-all">
-        Buy Now
-      </button>
-    </div>
-  </div>
 );
 
 export default BundleHero;
