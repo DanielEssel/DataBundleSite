@@ -41,7 +41,9 @@ export default function VerifyPaymentPage() {
     const verifyPayment = async () => {
       try {
         const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
+          method: "POST",
           headers: {
+            "Content-Type" : "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
