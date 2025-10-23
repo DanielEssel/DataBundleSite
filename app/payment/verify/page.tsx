@@ -40,7 +40,7 @@ export default function VerifyPaymentPage() {
 
     const verifyPayment = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/payment/verify/${reference}`, {
+        const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
