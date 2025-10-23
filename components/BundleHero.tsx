@@ -1,103 +1,34 @@
-"use client";
+import { FaWifi, FaBolt, FaShoppingBag } from "react-icons/fa";
 
-import { Signal, Wifi, BarChart2 } from "lucide-react";
-import { motion } from "framer-motion";
-
-interface Stats {
-  total: number;
-  active: number;
-  networks: number;
-  offsetY: number;
-}
-
-interface BundleHeroProps {
-  stats: Stats;
-}
-
-const BundleHero: React.FC<BundleHeroProps> = ({ stats }) => {
-  const { total, active, networks } = stats;
-  const networkLogos = ["MTN", "Telecel", "AirtelTigo", "Vodafone"];
-
+export default function Hero() {
   return (
-    <section className="relative w-full bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 text-white overflow-hidden py-20">
-      {/* Decorative Background */}
+    <section className="relative bg-gradient-to-b from-blue-600 to-blue-800 text-white py-20 px-6 md:px-12 lg:px-24 overflow-hidden">
+      <div className="absolute inset-0 opacity-10 bg-[url('/pattern.svg')] bg-cover bg-center" />
+
+      <div className="relative z-10 max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10">
+        <div className="max-w-xl text-center md:text-left">
+          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
+            Stay <span className="text-blue-200">Connected</span> <br /> with
+            Fast & Affordable Data Bundles
+          </h1>
+          <p className="text-blue-100 text-lg mb-6">
+            Buy data instantly across all networks — fast, secure, and reliable.
+            Enjoy seamless internet access wherever you are.
+          </p>
+        </div>
+      </div>
+
       <svg
-        className="absolute top-0 left-0 w-full h-full opacity-10"
-        xmlns="http://www.w3.org/2000/svg"
-        preserveAspectRatio="none"
+        className="absolute bottom-[-20] left-0 w-full text-white"
         viewBox="0 0 1440 320"
+        xmlns="http://www.w3.org/2000/svg"
       >
         <path
-          fill="white"
-          fillOpacity="0.05"
-          d="M0,160L60,170.7C120,181,240,203,360,218.7C480,235,600,245,720,224C840,203,960,149,1080,144C1200,139,1320,181,1380,202.7L1440,224L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"
-        />
+          fill="currentColor"
+          fillOpacity="1"
+          d="M0,224L30,213.3C60,203,120,181,180,192C240,203,300,245,360,240C420,235,480,181,540,181.3C600,181,660,235,720,229.3C780,224,840,160,900,133.3C960,107,1020,117,1080,138.7C1140,160,1200,192,1260,197.3C1320,203,1380,181,1410,170.7L1440,160L1440,320L1410,320C1380,320,1320,320,1260,320C1200,320,1140,320,1080,320C1020,320,960,320,900,320C840,320,780,320,720,320C660,320,600,320,540,320C480,320,420,320,360,320C300,320,240,320,180,320C120,320,60,320,30,320L0,320Z"
+        ></path>
       </svg>
-
-      <div className="relative z-10 container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
-        {/* Left Section */}
-        <div className="flex-1 flex flex-col gap-6">
-          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight">
-            <span className="flex items-center gap-3">
-              <Signal className="w-10 h-10 text-yellow-400 animate-pulse" />
-              Fast & Reliable Data Bundles
-            </span>
-          </h1>
-          <p className="text-white/80 text-lg md:text-xl max-w-lg">
-            Discover affordable and seamless data plans across all major networks. Choose the right bundle for your needs and stay connected.
-          </p>
-
-          {/* Stats Cards */}
-          <div className="mt-8 flex flex-wrap gap-6">
-            <StatCard icon={<Signal className="w-6 h-6 text-yellow-400 mb-1" />} value={total} label="Total Bundles" />
-            <StatCard icon={<Wifi className="w-6 h-6 text-blue-400 mb-1" />} value={active} label="Active Bundles" />
-            <StatCard icon={<BarChart2 className="w-6 h-6 text-purple-400 mb-1" />} value={networks} label="Networks Supported" />
-          </div>
-
-          {/* Network Logos */}
-          <div className="mt-8 flex flex-wrap gap-4">
-            {networkLogos.map((network) => (
-              <motion.span
-                key={network}
-                className="px-5 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white font-semibold hover:bg-white/20 transition"
-                whileHover={{ scale: 1.05 }}
-              >
-                {network}
-              </motion.span>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Section - Illustration or Graphic */}
-        <motion.div
-          className="flex-1 hidden md:flex justify-center"
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 1 }}
-        >
-          {/* Professional Graphic Placeholder */}
-          <div className="w-96 h-96 bg-white/10 rounded-3xl border border-white/20 flex items-center justify-center">
-            <span className="text-white/70 text-lg">Your Illustration Here</span>
-          </div>
-        </motion.div>
-      </div>
     </section>
   );
-};
-
-// ==============================
-// Subcomponents
-// ==============================
-const StatCard: React.FC<{ icon: React.ReactNode; value: number; label: string }> = ({ icon, value, label }) => (
-  <motion.div
-    className="bg-white/10 backdrop-blur-md rounded-2xl px-6 py-4 flex flex-col items-center min-w-[130px] hover:bg-white/20 cursor-pointer"
-    whileHover={{ scale: 1.05 }}
-    transition={{ type: "spring", stiffness: 300 }}
-  >
-    {icon}
-    <span className="text-2xl font-bold mt-2">{value}</span>
-    <span className="text-sm text-white/80 mt-1 text-center">{label}</span>
-  </motion.div>
-);
-
-export default BundleHero;
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Signal, X } from "lucide-react";
 import Image from "next/image";
 import BundleHero from "@/components/BundleHero";
+import Navbar from "@/components/Navbar";
 
 // ==============================
 // 🔹 Type Definitions
@@ -207,7 +208,8 @@ export default function BundlesPage() {
   // ==============================
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <BundleHero stats={stats} />
+      <Navbar/>
+      <BundleHero />
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Filters
