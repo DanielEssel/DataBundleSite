@@ -50,21 +50,18 @@ export default function PaymentVerificationPage() {
 
       // Get token from localStorage (or your auth system)
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        setError("No authentication token found.");
-        setLoading(false);
-        return;
-      }
 
       const API_URL = "https://bundle-api-w6yw.onrender.com";
 
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const res = await fetch(`${API_URL}/payment/verify/${reference}`, {
           method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers,
         });
 
         if (!res.ok) {
@@ -132,7 +129,9 @@ export default function PaymentVerificationPage() {
       <div className="max-w-lg mx-auto my-24 p-10 text-center">
         <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-6" />
         <h2 className="text-2xl text-gray-800 mb-2">Verifying Payment...</h2>
-        <p className="text-gray-500">Please wait while we confirm your payment</p>
+        <p className="text-gray-500">
+          Please wait while we confirm your payment
+        </p>
       </div>
     );
 
@@ -140,7 +139,9 @@ export default function PaymentVerificationPage() {
     return (
       <div className="max-w-lg mx-auto my-24 p-10 text-center bg-red-50 rounded-lg border border-red-200">
         <div className="text-6xl mb-6">❌</div>
-        <h2 className="text-2xl text-red-600 mb-4">Payment Verification Failed</h2>
+        <h2 className="text-2xl text-red-600 mb-4">
+          Payment Verification Failed
+        </h2>
         <p className="text-red-700 mb-6">{error}</p>
         <button
           onClick={() => (window.location.href = "/")}
@@ -157,7 +158,9 @@ export default function PaymentVerificationPage() {
     <div className="max-w-3xl mx-auto my-10 p-6">
       <div className="text-center p-10 bg-green-100 rounded-lg mb-8">
         <div className="text-6xl mb-4">✅</div>
-        <h1 className="text-3xl text-green-700 font-semibold mb-2">Payment Successful!</h1>
+        <h1 className="text-3xl text-green-700 font-semibold mb-2">
+          Payment Successful!
+        </h1>
         <p className="text-green-700">Your payment has been verified.</p>
       </div>
 
@@ -171,12 +174,16 @@ export default function PaymentVerificationPage() {
 
         <div>
           <strong className="text-gray-500">Status:</strong>{" "}
-          <span style={getStatusStyle(paymentData.status)}>{paymentData.status}</span>
+          <span style={getStatusStyle(paymentData.status)}>
+            {paymentData.status}
+          </span>
         </div>
 
         <div>
           <strong className="text-gray-500">Reference:</strong>{" "}
-          <code className="bg-gray-200 px-2 py-1 rounded">{paymentData.reference}</code>
+          <code className="bg-gray-200 px-2 py-1 rounded">
+            {paymentData.reference}
+          </code>
         </div>
 
         <div>
@@ -190,9 +197,16 @@ export default function PaymentVerificationPage() {
               📋 View Metadata
             </summary>
             <div className="mt-4 space-y-2 text-gray-700">
-              <div><strong>Order ID:</strong> {paymentData.metadata.orderId}</div>
-              <div><strong>Bundle ID:</strong> {paymentData.metadata.bundleId}</div>
-              <div><strong>Recipient Phone:</strong> {paymentData.metadata.recipientPhone}</div>
+              <div>
+                <strong>Order ID:</strong> {paymentData.metadata.orderId}
+              </div>
+              <div>
+                <strong>Bundle ID:</strong> {paymentData.metadata.bundleId}
+              </div>
+              <div>
+                <strong>Recipient Phone:</strong>{" "}
+                {paymentData.metadata.recipientPhone}
+              </div>
             </div>
           </details>
         )}
