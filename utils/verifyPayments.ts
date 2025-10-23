@@ -6,7 +6,7 @@ export async function verifyPayment(reference: string, token: string) {
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL; // Make sure this is set correctly
 
-    const res = await fetch(`${API_URL}/api/payments/verify/${reference}`, {
+    const res = await fetch(`${API_URL}/api/payment/verify/${reference}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
