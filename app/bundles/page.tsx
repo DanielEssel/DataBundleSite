@@ -109,6 +109,7 @@ export default function BundlesPage() {
         const res = await fetch(`${apiBase}/api/bundles?page=${page}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
+        
         });
 
         if (res.status === 401) {

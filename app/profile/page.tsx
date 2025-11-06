@@ -19,41 +19,92 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
+  // ✅ Fetch user profile
   useEffect(() => {
-    // Simulate fetching user profile from backend
+    const fetchUserProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const res = await fetch("/api/auth/profile", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Failed to fetch profile");
+        }
+
+        setUser({
+          firstName: data.data.firstName || "",
+          lastName: data.data.lastName || "",
+          email: data.data.email || "",
+          phone: data.data.phone || "",
+        });
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Something went wrong");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [router]);
+
+  // ✅ Handle field changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUser({ ...user, [e.target.name]: e.target.value });
+  };
+
+  // ✅ Update user profile
+  const handleSave = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
       return;
     }
 
-    // Example user data (replace with API call)
-    setLoading(true);
-    setTimeout(() => {
-      setUser({
-        firstName: "Daniel",
-        lastName: "Essel",
-        email: "daniel@example.com",
-        phone: "+233557424675",
-      });
-      setLoading(false);
-    }, 800);
-  }, [router]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUser({ ...user, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async () => {
     setSaving(true);
     setMessage("");
+    setError("");
 
-    // Simulate API request
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(user),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to update profile");
+      }
+
       setMessage("Profile updated successfully ✅");
-    }, 1200);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Update failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogout = () => {
@@ -64,7 +115,7 @@ export default function ProfilePage() {
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-blue-600 text-lg font-medium">
-        Loading profile...
+        Loading your profile...
       </div>
     );
 
@@ -84,7 +135,7 @@ export default function ProfilePage() {
             <CardTitle className="text-2xl font-semibold">
               {user.firstName} {user.lastName}
             </CardTitle>
-            <p className="text-blue-100 text-sm">Your personal information</p>
+            <p className="text-blue-100 text-sm">Manage your personal details</p>
           </div>
         </CardHeader>
 
@@ -102,6 +153,7 @@ export default function ProfilePage() {
                 className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
               />
             </div>
+
             <div>
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <User className="w-4 h-4 text-blue-600" />
@@ -114,6 +166,7 @@ export default function ProfilePage() {
                 className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
               />
             </div>
+
             <div>
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Mail className="w-4 h-4 text-blue-600" />
@@ -124,9 +177,11 @@ export default function ProfilePage() {
                 type="email"
                 value={user.email}
                 onChange={handleChange}
-                className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                disabled
+                className="mt-1 py-5 border-2 border-gray-200 rounded-xl bg-gray-100 cursor-not-allowed"
               />
             </div>
+
             <div>
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Phone className="w-4 h-4 text-blue-600" />
@@ -142,10 +197,15 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Message */}
+          {/* Messages */}
           {message && (
             <p className="text-green-600 text-sm font-medium text-center">
               {message}
+            </p>
+          )}
+          {error && (
+            <p className="text-red-600 text-sm font-medium text-center">
+              {error}
             </p>
           )}
 

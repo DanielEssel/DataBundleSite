@@ -1,173 +1,108 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, User, Mail, Phone } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-export default function ProfilePage() {
-  const router = useRouter();
-  const [user, setUser] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+interface UserProfile {
+  name: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  createdAt?: string;
+}
+
+export default function UserProfilePage() {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching user profile from backend
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/auth/profile");
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        const data = await res.json();
+        setUser(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
-    // Example user data (replace with API call)
-    setLoading(true);
-    setTimeout(() => {
-      setUser({
-        firstName: "Daniel",
-        lastName: "Essel",
-        email: "daniel@example.com",
-        phone: "+233557424675",
-      });
-      setLoading(false);
-    }, 800);
-  }, [router]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUser({ ...user, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage("");
-
-    // Simulate API request
-    setTimeout(() => {
-      setSaving(false);
-      setMessage("Profile updated successfully ✅");
-    }, 1200);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    router.push("/login");
-  };
-
-  if (loading)
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-blue-600 text-lg font-medium">
-        Loading profile...
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin w-6 h-6 text-blue-600" />
       </div>
     );
+  }
+
+  if (!user) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        Failed to load profile. Please try again.
+      </div>
+    );
+  }
+
+  const initials =
+    user.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "U";
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-blue-50 to-white py-12 px-4 flex items-center justify-center">
-      <Card className="w-full max-w-2xl shadow-xl border border-blue-100 rounded-2xl overflow-hidden">
-        <CardHeader className="bg-blue-600 text-white py-8">
-          <div className="flex flex-col items-center space-y-3">
-            <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-md">
-              <Image
-                src="/user-avatar.png"
-                alt="User Avatar"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <CardTitle className="text-2xl font-semibold">
-              {user.firstName} {user.lastName}
-            </CardTitle>
-            <p className="text-blue-100 text-sm">Your personal information</p>
+    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md p-6 sm:p-8">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        {user.avatar ? (
+          <Image
+            src={user.avatar}
+            alt={user.name}
+            width={100}
+            height={100}
+            className="rounded-full border object-cover"
+          />
+        ) : (
+          <div className="w-24 h-24 flex items-center justify-center rounded-full bg-blue-600 text-white text-3xl font-semibold">
+            {initials}
           </div>
-        </CardHeader>
+        )}
 
-        <CardContent className="p-6 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <User className="w-4 h-4 text-blue-600" />
-                First Name
-              </label>
-              <Input
-                name="firstName"
-                value={user.firstName}
-                onChange={handleChange}
-                className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <User className="w-4 h-4 text-blue-600" />
-                Last Name
-              </label>
-              <Input
-                name="lastName"
-                value={user.lastName}
-                onChange={handleChange}
-                className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-blue-600" />
-                Email
-              </label>
-              <Input
-                name="email"
-                type="email"
-                value={user.email}
-                onChange={handleChange}
-                className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-600" />
-                Phone
-              </label>
-              <Input
-                name="phone"
-                type="tel"
-                value={user.phone}
-                onChange={handleChange}
-                className="mt-1 py-5 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
-              />
-            </div>
-          </div>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+          <p className="text-gray-600">{user.email}</p>
+          {user.phone && <p className="text-gray-600">{user.phone}</p>}
 
-          {/* Message */}
-          {message && (
-            <p className="text-green-600 text-sm font-medium text-center">
-              {message}
+          {user.createdAt && (
+            <p className="text-gray-400 text-sm mt-2">
+              Member since {new Date(user.createdAt).toLocaleDateString()}
             </p>
           )}
+        </div>
+      </div>
 
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-5 font-semibold rounded-xl shadow-md hover:shadow-lg"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="flex-1 border-2 border-blue-600 text-blue-700 hover:bg-blue-50 py-5 font-semibold rounded-xl flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-4 h-4" /> Logout
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </section>
+      <hr className="my-6" />
+
+      <div className="space-y-3 text-gray-700">
+        <p>
+          <span className="font-medium">Email:</span> {user.email}
+        </p>
+        {user.phone && (
+          <p>
+            <span className="font-medium">Phone:</span> {user.phone}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-8 flex justify-end">
+        <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+          Edit Profile
+        </button>
+      </div>
+    </div>
   );
 }
