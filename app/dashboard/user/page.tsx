@@ -1,14 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import {
-  Package,
-  Clock,
-  Wifi,
-  Headphones,
-  X,
-  Send,
-} from "lucide-react";
+import { Package, Clock, Wifi, X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -39,6 +33,45 @@ interface UserProfile {
   phone?: string;
 }
 
+// Network configurations with colors and logos
+const networkConfig: Record<string, { 
+  color: string;
+  bgColor: string;
+  lightBg: string;
+  logo: React.ReactElement;
+}> = {
+  MTN: {
+    color: "#FFD700",
+    bgColor: "bg-yellow-400",
+    lightBg: "bg-yellow-50",
+    logo: <img src="/logos/mtn.png" alt="MTN" className="w-6 h-6" />
+  },
+  VODAFONE: {
+    color: "#E60000",
+    bgColor: "bg-red-500",
+    lightBg: "bg-red-50",
+    logo: <img src="/logos/vodafone.png" alt="Vodafone" className="w-6 h-6" />
+  },
+  AIRTELTIGO: {
+    color: "#0066CC",
+    bgColor: "bg-blue-600",
+    lightBg: "bg-blue-50",
+    logo: <img src="/logos/at.png" alt="AirtelTigo" className="w-6 h-6" />
+  },
+  TELECEL: {
+    color: "#E60000",
+    bgColor: "bg-red-500",
+    lightBg: "bg-red-50",
+    logo: <img src="/logos/tel.png" alt="Telecel" className="w-6 h-6" />
+  },
+  OTHER: {
+    color: "#4B5563",
+    bgColor: "bg-gray-500",
+    lightBg: "bg-gray-50",
+    logo: <Package className="w-6 h-6 text-gray-600" />
+  }
+};
+
 export default function UserDashboard() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [bundles, setBundles] = useState<Bundle[]>([]);
@@ -56,8 +89,12 @@ export default function UserDashboard() {
 
   // 🛰️ Fetch Dashboard Data
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setLoading(false);
+      setError("No auth token found. Please login.");
+      return;
+    }
 
     const fetchDashboardData = async () => {
       try {
@@ -114,19 +151,6 @@ export default function UserDashboard() {
     }, {});
   }, [bundles]);
 
-  // 💬 Chat Handler
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    setChatMessages((prev) => [
-      ...prev,
-      { type: "user", text: messageInput },
-      {
-        type: "bot",
-        text: "Thank you for your message. Our support team will assist you shortly.",
-      },
-    ]);
-    setMessageInput("");
-  };
 
   // 🟢 Status Badge
   const getStatusBadge = (status: "success" | "pending" | "failed") => {
@@ -169,13 +193,13 @@ export default function UserDashboard() {
   // 🧩 UI Rendering
   return (
     <div className="w-full min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {userName}!
           </h1>
-          <div className="flex items-center space-x-6 text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0 text-sm text-gray-600">
             <div className="flex items-center space-x-2">
               <Package className="w-4 h-4 text-blue-600" />
               <span>
@@ -198,114 +222,154 @@ export default function UserDashboard() {
         </div>
 
         {/* Bundles Section */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-8">
-          <div className="flex space-x-2 mb-4">
-            {Object.keys(bundlesByNetwork).map((network) => (
-              <button
-                key={network}
-                onClick={() => setSelectedNetwork(network)}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                  selectedNetwork === network
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {network}
-              </button>
-            ))}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6 mb-6 md:mb-8">
+          <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">Available Bundles</h2>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(bundlesByNetwork).map((network) => {
+                const config = networkConfig[network] || networkConfig.OTHER;
+                return (
+                  <button
+                    key={network}
+                    onClick={() => setSelectedNetwork(network)}
+                    className={`px-3 md:px-4 py-2 rounded-lg font-medium text-xs md:text-sm transition-all border-2 flex items-center space-x-1 md:space-x-2 ${
+                      selectedNetwork === network
+                        ? "text-white border-transparent"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
+                    }`}
+                    style={selectedNetwork === network ? { backgroundColor: config.color } : {}}
+                  >
+                    <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">{config.logo}</span>
+                    <span className="hidden sm:inline">{network}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-[380px] overflow-y-auto pr-1">
-            {bundlesByNetwork[selectedNetwork]?.map((bundle) => (
-              <div
-                key={bundle._id}
-                className="border border-gray-200 rounded-xl p-3 bg-white hover:bg-blue-50 hover:shadow-md transition-all flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="bg-blue-100 p-1.5 rounded-md">
-                    <Wifi className="w-4 h-4 text-blue-700" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {bundlesByNetwork[selectedNetwork]?.map((bundle) => {
+              const config = networkConfig[bundle.telcoCode?.toUpperCase() || "OTHER"] || networkConfig.OTHER;
+              return (
+                <div
+                  key={bundle._id}
+                  className="relative border-2 border-gray-200 rounded-xl p-3 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col justify-between"
+                  style={{ borderTop: `4px solid ${config.color}` }}
+                >
+                  {/* Network Icon */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`${config.lightBg} p-1.5 rounded-md flex items-center justify-center`}>
+                      {config.logo}
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {bundle.validity || "—"}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {bundle.validity || "—"}
-                  </span>
+
+                  {/* Bundle Details */}
+                  <div className="text-center mb-2">
+                    <p className="text-sm md:text-lg font-bold text-gray-900 line-clamp-2">
+                      {bundle.name}
+                    </p>
+                    <p className="text-xs font-medium text-gray-600">{bundle.telcoCode}</p>
+                  </div>
+
+                  {/* Price and Action */}
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs md:text-sm font-semibold text-gray-900">
+                      ₵{bundle.price?.toFixed(2) || "0.00"}
+                    </span>
+                    <button 
+                      className="hover:opacity-90 text-white px-2 md:px-3 py-1 rounded-md text-xs font-medium transition-all"
+                      style={{ backgroundColor: config.color }}
+                    >
+                      Buy
+                    </button>
+                  </div>
                 </div>
-                <div className="text-center mb-2">
-                  <p className="text-lg font-bold text-gray-900">
-                    {bundle.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{bundle.telcoCode}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold text-gray-900">
-                    ₵{bundle.price?.toFixed(2) || "0.00"}
-                  </span>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs">
-                    Buy
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Purchase History</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Bundle
-                  </th>
-                  <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Recipient
-                  </th>
-                  <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Status
-                  </th>
-                  <th className="py-4 px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Date & Time
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {transactions.map((txn) => (
-                  <tr key={txn._id} className="hover:bg-gray-50">
-                    <td className="py-4 px-6 font-medium text-gray-900">
-                      {/* ✅ FIX: safely render bundle name */}
-                      {typeof txn.bundle === "object"
-                        ? txn.bundle?.name
-                        : txn.bundleName || txn.bundle || "—"}
-                    </td>
-                    <td className="py-4 px-6 text-gray-600 font-mono text-sm">
-                      {txn.recipient || "—"}
-                    </td>
-                    <td className="py-4 px-6">
-                      {getStatusBadge(txn.status || "pending")}
-                    </td>
-                    <td className="py-4 px-6 text-gray-900 font-medium">
-                      {txn.date || "—"}
-                      {txn.time && (
-                        <div className="text-gray-500 text-sm">{txn.time}</div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+<div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+  <div className="p-4 md:p-6 border-b border-gray-200">
+    <h2 className="text-lg md:text-xl font-bold text-gray-900">
+      Purchase History
+    </h2>
+  </div>
 
-        {/* Floating Chat */}
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg"
+  {/* Table for md+ */}
+  <div className="hidden md:block overflow-x-auto">
+    <table className="w-full min-w-[640px]">
+      <thead className="bg-gray-50">
+        <tr>
+          <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">Bundle</th>
+          <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">Recipient</th>
+          <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+          <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-200">
+        {transactions.map((txn) => (
+          <tr key={txn._id} className="hover:bg-gray-50">
+            <td className="py-3 md:py-4 px-4 md:px-6 font-medium text-gray-900 text-sm">
+              {typeof txn.bundle === "object"
+                ? txn.bundle?.name
+                : txn.bundleName || txn.bundle || "—"}
+            </td>
+            <td className="py-3 md:py-4 px-4 md:px-6 text-gray-600 font-mono text-xs md:text-sm">
+              {txn.recipient || "—"}
+            </td>
+            <td className="py-3 md:py-4 px-4 md:px-6">
+              {getStatusBadge(txn.status || "pending")}
+            </td>
+            <td className="py-3 md:py-4 px-4 md:px-6 text-gray-900 font-medium text-sm">
+              {txn.date || "—"}
+              {txn.time && (
+                <div className="text-gray-500 text-xs md:text-sm">{txn.time}</div>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Stacked card view for mobile */}
+  <div className="md:hidden space-y-3 p-2">
+    {transactions.map((txn) => (
+      <div
+        key={txn._id}
+        className="bg-gray-50 rounded-lg p-3 shadow-sm flex flex-col space-y-1"
+      >
+        <div className="flex justify-between items-center">
+          <span className="font-medium text-gray-900 text-sm">
+            {typeof txn.bundle === "object"
+              ? txn.bundle?.name
+              : txn.bundleName || txn.bundle || "—"}
+          </span>
+          {getStatusBadge(txn.status || "pending")}
+        </div>
+        <div className="text-gray-600 text-xs font-mono">Recipient: {txn.recipient || "—"}</div>
+        <div className="text-gray-500 text-xs">
+          Date: {txn.date || "—"} {txn.time && `| Time: ${txn.time}`}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+       {/* Floating WhatsApp Support Button */}
+        <a
+          href="https://wa.me/233557424675"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-lg flex items-center justify-center z-50"
         >
-          <Headphones className="w-6 h-6" />
-        </button>
+          <FaWhatsapp className="w-6 h-6" />
+        </a>
 
         {/* Chat Modal */}
         {chatOpen && (
@@ -339,12 +403,6 @@ export default function UserDashboard() {
                   placeholder="Type your message..."
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <button
-                  onClick={handleSendMessage}
-                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
               </div>
             </div>
           </div>
