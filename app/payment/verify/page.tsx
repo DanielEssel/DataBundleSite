@@ -119,7 +119,7 @@ export default function PaymentVerificationPage() {
   if (error)
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-white text-center">
-        <img
+        <Image
           src="/logos/acdatalogo.png"
           alt="AC Data Hub Logo"
           className="w-20 h-20 mb-4"
@@ -144,11 +144,11 @@ export default function PaymentVerificationPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 flex flex-col items-center py-10 px-4">
       {/* Logo */}
-      <img
-        src="/logo.png"
-        alt="AC Data Hub Logo"
-        className="w-24 h-24 mb-6"
-      />
+      <Image
+          src="/logos/acdatalogo.png"
+          alt="AC Data Hub Logo"
+          className="w-20 h-20 mb-4"
+        />
 
       {/* Success Banner */}
       <div className="text-center p-8 bg-blue-100 rounded-2xl shadow-md w-full max-w-2xl mb-8 border border-blue-200">

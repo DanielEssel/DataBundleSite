@@ -147,7 +147,7 @@ const NetworkFilterButton: React.FC<{
       <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">
         {config.logo}
       </span>
-      <span className="hidden sm:inline">{network}</span>
+      <span className="sm:inline">{network}</span>
     </button>
   );
 };
@@ -441,7 +441,7 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {bundlesByNetwork[selectedNetwork]?.map((bundle) => (
               <BundleCard
                 key={bundle._id}

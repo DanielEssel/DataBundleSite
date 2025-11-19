@@ -3,31 +3,38 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, X, User, LogOut, Settings, ShoppingBag, ChevronDown } from "lucide-react";
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  Settings,
+  ShoppingBag,
+  ChevronDown,
+} from "lucide-react";
 import Image from "next/image";
 
 interface UserData {
   firstName?: string;
   lastName?: string;
   email?: string;
-  phone?: string;
+  avatarUrl?: string;
 }
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Check if user is logged in
+  const isLoggedIn = Boolean(user);
+
+  // Load user from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
     if (token && userData) {
-      setIsLoggedIn(true);
       try {
         setUser(JSON.parse(userData));
       } catch (error) {
@@ -43,7 +50,6 @@ export default function Navbar() {
         setProfileOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -51,7 +57,6 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    setIsLoggedIn(false);
     setUser(null);
     setProfileOpen(false);
     router.push("/");
@@ -59,9 +64,9 @@ export default function Navbar() {
 
   const getInitials = () => {
     if (!user) return "U";
-    const firstInitial = user.firstName?.charAt(0).toUpperCase() || "";
-    const lastInitial = user.lastName?.charAt(0).toUpperCase() || "";
-    return firstInitial + lastInitial || "U";
+    const first = user.firstName?.charAt(0).toUpperCase() || "";
+    const last = user.lastName?.charAt(0).toUpperCase() || "";
+    return first + last || "U";
   };
 
   const getFullName = () => {
@@ -69,10 +74,22 @@ export default function Navbar() {
     return `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User";
   };
 
+  const navLinks = [
+    { name: "Home", href: "/" },
+    { name: "How It Works", href: "/how-it-works" },
+    { name: "Data Bundles", href: "/bundles" },
+  ];
+
+  const profileLinks = [
+    { name: "My Profile", href: "/profile", icon: <User className="w-4 h-4 text-gray-500" /> },
+    { name: "My Orders", href: "/orders", icon: <ShoppingBag className="w-4 h-4 text-gray-500" /> },
+    { name: "Settings", href: "/settings", icon: <Settings className="w-4 h-4 text-gray-500" /> },
+  ];
+
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-        {/* Logo / Brand */}
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
           <div className="relative w-40 h-12 md:w-48 md:h-14">
             <Image
@@ -85,32 +102,21 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Desktop Menu */}
+        {/* Desktop Nav */}
         <nav className="hidden md:flex space-x-8 text-gray-700 font-medium">
-          <Link 
-            href="/" 
-            className="hover:text-blue-600 transition-colors duration-200 relative group"
-          >
-            Home
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" />
-          </Link>
-          <Link 
-            href="/how-it-works" 
-            className="hover:text-blue-600 transition-colors duration-200 relative group"
-          >
-            How It Works
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" />
-          </Link>
-          <Link 
-            href="/bundles" 
-            className="hover:text-blue-600 transition-colors duration-200 relative group"
-          >
-            Data Bundles
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" />
-          </Link>
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              href={link.href}
+              className="hover:text-blue-600 transition-colors duration-200 relative group"
+            >
+              {link.name}
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" />
+            </Link>
+          ))}
         </nav>
 
-        {/* Desktop Auth Section */}
+        {/* Desktop Auth/Profile */}
         <div className="hidden md:flex items-center space-x-4">
           {isLoggedIn ? (
             <div className="relative" ref={dropdownRef}>
@@ -118,16 +124,26 @@ export default function Navbar() {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-3 px-3 py-2 rounded-full hover:bg-slate-50 transition-colors duration-200 group"
               >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-md">
-                  {getInitials()}
-                </div>
+                {user?.avatarUrl ? (
+                  <Image
+                    src={user.avatarUrl}
+                    alt="avatar"
+                    width={36}
+                    height={36}
+                    className="rounded-full object-cover shadow-md"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+                    {getInitials()}
+                  </div>
+                )}
                 <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                   {user?.firstName || "User"}
                 </span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown */}
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 animate-slideDown">
                   {/* User Info */}
@@ -136,32 +152,19 @@ export default function Navbar() {
                     <p className="text-xs text-gray-500 mt-0.5">{user?.email}</p>
                   </div>
 
-                  {/* Menu Items */}
+                  {/* Links */}
                   <div className="py-1">
-                    <Link
-                      href="/profile"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
-                    >
-                      <User className="w-4 h-4 text-gray-500" />
-                      My Profile
-                    </Link>
-                    <Link
-                      href="/orders"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
-                    >
-                      <ShoppingBag className="w-4 h-4 text-gray-500" />
-                      My Orders
-                    </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
-                    >
-                      <Settings className="w-4 h-4 text-gray-500" />
-                      Settings
-                    </Link>
+                    {profileLinks.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
+                      >
+                        {item.icon}
+                        {item.name}
+                      </Link>
+                    ))}
                   </div>
 
                   {/* Logout */}
@@ -209,12 +212,22 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-slate-100 shadow-lg animate-slideDown">
           <nav className="flex flex-col px-6 py-4 space-y-1">
-            {/* User Info (Mobile) */}
+            {/* User Info */}
             {isLoggedIn && (
               <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-slate-50 rounded-lg">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-md">
-                  {getInitials()}
-                </div>
+                {user?.avatarUrl ? (
+                  <Image
+                    src={user.avatarUrl}
+                    alt="avatar"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-md">
+                    {getInitials()}
+                  </div>
+                )}
                 <div>
                   <p className="text-sm font-semibold text-gray-800">{getFullName()}</p>
                   <p className="text-xs text-gray-500">{user?.email}</p>
@@ -222,55 +235,33 @@ export default function Navbar() {
               </div>
             )}
 
-            <Link 
-              href="/" 
-              onClick={() => setMenuOpen(false)}
-              className="px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-            >
-              Home
-            </Link>
-            <Link 
-              href="/how-it-works" 
-              onClick={() => setMenuOpen(false)}
-              className="px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-            >
-              How It Works
-            </Link>
-            <Link 
-              href="/bundles" 
-              onClick={() => setMenuOpen(false)}
-              className="px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-            >
-              Data Bundles
-            </Link>
+            {/* Navigation Links */}
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className="px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
+              >
+                {link.name}
+              </Link>
+            ))}
 
+            {/* Profile / Auth Links */}
             {isLoggedIn ? (
               <>
                 <div className="border-t border-slate-100 my-2" />
-                <Link
-                  href="/profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-                >
-                  <User className="w-4 h-4" />
-                  My Profile
-                </Link>
-                <Link
-                  href="/orders"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  My Orders
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </Link>
+                {profileLinks.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
+                  >
+                    {item.icon}
+                    {item.name}
+                  </Link>
+                ))}
                 <button
                   onClick={() => {
                     handleLogout();

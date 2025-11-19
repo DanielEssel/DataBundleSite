@@ -47,8 +47,6 @@ export default function OrderModal({
     setMessageType("");
 
     const token = localStorage.getItem("authToken");
-    console.log("OrderModal token:", token);
-
     if (!token) {
       setMessage("Please log in to continue");
       setMessageType("error");
@@ -77,7 +75,6 @@ export default function OrderModal({
       });
 
       const data = await res.json();
-      console.log("Order response:", data);
 
       if (res.status === 401) {
         localStorage.removeItem("authToken");
@@ -107,33 +104,48 @@ export default function OrderModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="p-0 max-w-md overflow-hidden border-none shadow-2xl rounded-2xl">
+      <DialogContent
+        className="
+          p-0
+          w-[95vw]
+          max-w-md
+          mx-auto
+          overflow-hidden
+          border-none
+          shadow-2xl
+          rounded-2xl
+          max-h-[90vh]
+          overflow-y-auto
+        "
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
+            <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold">
               Complete Your Purchase
             </DialogTitle>
-            <p className="text-white/90 text-sm mt-1">
-              You’re one step away from activating your bundle
+            <p className="text-white/90 text-xs sm:text-sm mt-1">
+              You're one step away from activating your bundle
             </p>
           </DialogHeader>
         </div>
 
-        <div className="p-6 space-y-6 bg-white">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-white">
           {/* Bundle Summary */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 sm:p-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-blue-700 font-medium">
+              <span className="text-xs sm:text-sm text-blue-700 font-medium">
                 Bundle Name
               </span>
-              <span className="text-sm font-semibold text-gray-900">
+              <span className="text-sm sm:text-base font-semibold text-gray-900 text-right break-words max-w-[60%]">
                 {bundleName}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-700 font-medium">Amount</span>
-              <span className="text-2xl font-bold text-blue-600">
+              <span className="text-xs sm:text-sm text-blue-700 font-medium">
+                Amount
+              </span>
+              <span className="text-xl sm:text-2xl font-bold text-blue-600">
                 ₵{price.toFixed(2)}
               </span>
             </div>
@@ -141,7 +153,7 @@ export default function OrderModal({
 
           {/* Recipient Phone */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <label className="text-sm sm:text-base font-semibold text-gray-700 flex items-center gap-2">
               <Phone className="w-4 h-4 text-blue-600" />
               Recipient Phone Number
             </label>
@@ -150,16 +162,16 @@ export default function OrderModal({
               placeholder="e.g. +233557424675"
               value={recipientPhone}
               onChange={(e) => setRecipientPhone(e.target.value)}
-              className="border-2 border-gray-200 focus:border-blue-500 py-5 text-base rounded-xl transition-all"
+              className="border-2 border-gray-200 focus:border-blue-500 py-5 sm:py-6 text-base rounded-xl transition-all"
             />
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Enter the phone number that will receive the data bundle.
+            <p className="text-xs text-gray-500 flex items-start gap-1">
+              <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>Enter the phone number that will receive the data bundle.</span>
             </p>
           </div>
 
           {/* Secure Payment Notice */}
-          <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <div className="flex items-center gap-2 sm:gap-3 bg-blue-50 border border-blue-100 rounded-lg p-2 sm:p-3">
             <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
             <div>
               <p className="text-xs font-semibold text-blue-800">
@@ -174,49 +186,43 @@ export default function OrderModal({
           {/* Message Feedback */}
           {message && (
             <div
-              className={`flex items-start gap-3 p-4 rounded-xl border ${
+              className={`flex items-start gap-2 sm:gap-3 p-3 rounded-xl border text-xs sm:text-sm ${
                 messageType === "success"
-                  ? "bg-green-50 border-green-200"
-                  : "bg-red-50 border-red-200"
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-red-50 border-red-200 text-red-800"
               }`}
             >
               {messageType === "success" ? (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               )}
-              <p
-                className={`text-sm font-medium ${
-                  messageType === "success" ? "text-green-800" : "text-red-800"
-                }`}
-              >
-                {message}
-              </p>
+              <p className="font-medium">{message}</p>
             </div>
           )}
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               onClick={onClose}
               disabled={loading}
               variant="outline"
-              className="flex-1 py-5 text-base font-semibold border-2 hover:bg-blue-50 text-blue-700 border-blue-200"
+              className="w-full sm:flex-1 py-5 sm:py-6 text-sm sm:text-base font-semibold border-2 hover:bg-blue-50 text-blue-700 border-blue-200 rounded-xl"
             >
               Cancel
             </Button>
             <Button
               onClick={handleOrder}
               disabled={loading || !recipientPhone}
-              className="flex-1 py-5 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+              className="w-full sm:flex-1 py-5 sm:py-6 text-sm sm:text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all rounded-xl"
             >
               {loading ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-center">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Processing...
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-center">
                   <CreditCard className="w-5 h-5" />
                   Pay ₵{price.toFixed(2)}
                 </div>
