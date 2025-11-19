@@ -87,18 +87,20 @@ export default function BundlesPage() {
   const [offsetY, setOffsetY] = useState(0);
 
   // ==============================
-  // 🔒 Auth Check
+  // 🔒 Auth Check - FIXED to use "authToken"
   // ==============================
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) router.replace("/login");
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      router.replace("/login");
+    }
   }, [router]);
 
   // ==============================
-  // 🛰️ Fetch Bundles
+  // 🛰️ Fetch Bundles - FIXED to use "authToken"
   // ==============================
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
     if (!token) return;
 
     const fetchBundles = async () => {
@@ -109,11 +111,11 @@ export default function BundlesPage() {
         const res = await fetch(`${apiBase}/api/bundles?page=${page}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
-        
         });
 
         if (res.status === 401) {
-          localStorage.removeItem("token");
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("user");
           router.replace("/login");
           return;
         }
@@ -203,6 +205,7 @@ export default function BundlesPage() {
     return (
       <ErrorScreen error={error} />
     );
+
 
   // ==============================
   // 🧩 Main UI

@@ -48,7 +48,7 @@ export default function BundleDetailsPage() {
         <p className="text-gray-600 text-lg">Loading bundle details...</p>
       </section>
     );
-  }
+  } 
 
   // ⚠️ Error State
   if (!bundle) {

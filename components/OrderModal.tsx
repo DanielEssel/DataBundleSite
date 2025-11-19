@@ -46,7 +46,9 @@ export default function OrderModal({
     setMessage("");
     setMessageType("");
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
+    console.log("OrderModal token:", token);
+
     if (!token) {
       setMessage("Please log in to continue");
       setMessageType("error");
@@ -60,8 +62,10 @@ export default function OrderModal({
       return;
     }
 
-    const tryOrder = async (paymentMethod: string) => {
-      const payload = { bundleId, recipientPhone, paymentMethod };
+    const payload = { bundleId, recipientPhone, paymentMethod: "momo" };
+
+    try {
+      setLoading(true);
 
       const res = await fetch(`${API_URL}/api/orders`, {
         method: "POST",
@@ -73,23 +77,10 @@ export default function OrderModal({
       });
 
       const data = await res.json();
-      return { res, data };
-    };
-
-    try {
-      setLoading(true);
-      let { res, data } = await tryOrder("paystack");
-
-      if (
-        res.status === 400 &&
-        data?.error?.includes("paymentMethod") &&
-        data?.error?.includes("enum")
-      ) {
-        ({ res, data } = await tryOrder("card"));
-      }
+      console.log("Order response:", data);
 
       if (res.status === 401) {
-        localStorage.removeItem("token");
+        localStorage.removeItem("authToken");
         setMessage("Session expired. Please log in again.");
         setMessageType("error");
         setTimeout(() => router.push("/login"), 2000);

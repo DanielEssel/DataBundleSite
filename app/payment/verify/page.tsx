@@ -9,6 +9,7 @@ import {
   FaReceipt,
   FaHome,
 } from "react-icons/fa";
+import Image from "next/image";
 
 interface PaymentMetadata {
   orderId: string;
@@ -99,8 +100,8 @@ export default function PaymentVerificationPage() {
   if (loading)
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center bg-gradient-to-b from-white to-blue-50">
-        <img
-          src="/logo.png"
+        <Image
+          src="/logos/acdatalogo.png"
           alt="AC Data Hub Logo"
           className="w-24 h-24 mb-6 animate-pulse"
         />
