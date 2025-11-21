@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Package, Clock, X } from "lucide-react";
+import { Package, Clock } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import OrderModal from "@/components/OrderModal";
 
@@ -22,9 +22,15 @@ interface Transaction {
   bundle?: Bundle | string;
   bundleName?: string;
   recipient?: string;
+  recipientPhone?: string;
   status?: "success" | "pending" | "failed";
+  orderStatus?: string;
+  paymentStatus?: string;
+  deliveryStatus?: string;
   date?: string;
   time?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface UserProfile {
@@ -48,6 +54,7 @@ interface NetworkConfig {
 // ============================================================================
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const WHATSAPP_SUPPORT_NUMBER = "233557424675";
 
 const NETWORK_CONFIG: Record<string, NetworkConfig> = {
   MTN: {
@@ -88,8 +95,6 @@ const STATUS_STYLES: Record<"success" | "pending" | "failed", string> = {
   failed: "bg-red-50 text-red-700 border-red-200",
 };
 
-const WHATSAPP_SUPPORT_NUMBER = "233557424675";
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -111,6 +116,38 @@ const getUserDisplayName = (user: UserProfile): string => {
     `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
     "User"
   );
+};
+
+const transformOrderData = (order: any): Transaction => {
+  const createdDate = order.createdAt ? new Date(order.createdAt) : null;
+
+  return {
+    ...order,
+    recipient: order.recipientPhone || order.recipient || "—",
+    date: createdDate
+      ? createdDate.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      : "—",
+    time: createdDate
+      ? createdDate.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : undefined,
+    status: (order.orderStatus || order.status || "pending") as
+      | "success"
+      | "pending"
+      | "failed",
+  };
+};
+
+const handleUnauthorized = (): void => {
+  localStorage.removeItem("authToken");
+  window.location.href = "/login";
 };
 
 // ============================================================================
@@ -274,21 +311,116 @@ const WhatsAppButton: React.FC = () => (
   </a>
 );
 
+const Pagination: React.FC<{
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}> = ({ currentPage, totalPages, onPageChange }) => {
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const showEllipsisStart = currentPage > 3;
+    const showEllipsisEnd = currentPage < totalPages - 2;
+
+    if (totalPages <= 7) {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (showEllipsisStart) {
+        pages.push("...");
+      }
+
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (showEllipsisEnd) {
+        pages.push("...");
+      }
+
+      // Always show last page
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-center gap-2 py-4">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Previous
+      </button>
+
+      <div className="flex gap-1">
+        {getPageNumbers().map((page, index) => {
+          if (page === "...") {
+            return (
+              <span
+                key={`ellipsis-${index}`}
+                className="px-3 py-2 text-gray-500"
+              >
+                ...
+              </span>
+            );
+          }
+
+          return (
+            <button
+              key={page}
+              onClick={() => onPageChange(page as number)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === page
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {page}
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
 // ============================================================================
 // MAIN DASHBOARD COMPONENT
 // ============================================================================
 
-export default function UserDashboard() {
+export default function () {
+  // State
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<string>("MTN");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Order Modal state
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Fetch Dashboard Data
   useEffect(() => {
@@ -316,26 +448,40 @@ export default function UserDashboard() {
           }),
         ]);
 
-        if (userRes.status === 401) {
-          localStorage.removeItem("authToken");
-          window.location.href = "/login";
+        // Handle unauthorized access
+        if (
+          userRes.status === 401 ||
+          bundlesRes.status === 401 ||
+          ordersRes.status === 401
+        ) {
+          handleUnauthorized();
           return;
         }
 
+        // Check for other errors
         if (!userRes.ok || !bundlesRes.ok || !ordersRes.ok) {
           throw new Error("Failed to load some dashboard data");
         }
 
-        const userJson = await userRes.json();
-        const bundlesJson = await bundlesRes.json();
-        const ordersJson = await ordersRes.json();
+        // Parse responses
+        const [userJson, bundlesJson, ordersJson] = await Promise.all([
+          userRes.json(),
+          bundlesRes.json(),
+          ordersRes.json(),
+        ]);
 
+        // Transform and set data
         setUserData(userJson.data || userJson);
         setBundles(bundlesJson.data?.data || []);
-        setTransactions(ordersJson.data?.orders || []);
+
+        // Transform orders with proper date, time, and recipient mapping
+        const transformedOrders = (ordersJson.data?.orders || []).map(
+          transformOrderData
+        );
+        setTransactions(transformedOrders);
       } catch (err: any) {
         console.error("Dashboard fetch error:", err);
-        setError(err.message);
+        setError(err.message || "An unexpected error occurred");
       } finally {
         setLoading(false);
       }
@@ -354,35 +500,54 @@ export default function UserDashboard() {
     }, {});
   }, [bundles]);
 
-  // Handle Buy Click
+  // Paginate Transactions
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return transactions.slice(startIndex, endIndex);
+  }, [transactions, currentPage]);
+
+  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+
+  // Event Handlers
   const handleBuyClick = useCallback((bundle: Bundle) => {
     setSelectedBundle(bundle);
     setIsOrderModalOpen(true);
   }, []);
 
-  // Handle Modal Close
   const handleModalClose = useCallback(() => {
     setIsOrderModalOpen(false);
     setSelectedBundle(null);
   }, []);
 
-  // Handle Order Success
   const handleOrderSuccess = useCallback(() => {
     setIsOrderModalOpen(false);
     setSelectedBundle(null);
 
     // Refresh transactions
     const token = localStorage.getItem("authToken");
-    if (token) {
-      fetch(`${API_BASE}/api/orders`, {
-        headers: { Authorization: `Bearer ${token}` },
+    if (!token) return;
+
+    fetch(`${API_BASE}/api/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          handleUnauthorized();
+          return null;
+        }
+        return res.json();
       })
-        .then((res) => res.json())
-        .then((data) => {
-          setTransactions(data.data?.orders || []);
-        })
-        .catch((err) => console.error("Failed to refresh transactions:", err));
-    }
+      .then((data) => {
+        if (data) {
+          const transformedOrders = (data.data?.orders || []).map(
+            transformOrderData
+          );
+          setTransactions(transformedOrders);
+          setCurrentPage(1); // Reset to first page after refresh
+        }
+      })
+      .catch((err) => console.error("Failed to refresh transactions:", err));
   }, []);
 
   // Loading / Error States
@@ -392,7 +557,7 @@ export default function UserDashboard() {
 
   const userName = getUserDisplayName(userData);
 
-  // UI Rendering
+  // Render
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8">
@@ -455,44 +620,65 @@ export default function UserDashboard() {
         {/* Transactions Section */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-4 md:p-6 border-b border-gray-200">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">
-              Purchase History
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900">
+                Purchase History
+              </h2>
+              <span className="text-sm text-gray-500">
+                Showing {paginatedTransactions.length} of {transactions.length} transactions
+              </span>
+            </div>
           </div>
 
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[640px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Bundle
-                  </th>
-                  <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Recipient
-                  </th>
-                  <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Status
-                  </th>
-                  <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                    Date & Time
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {transactions.map((txn) => (
-                  <TransactionRow key={txn._id} transaction={txn} />
+          {transactions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>No purchase history yet</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Bundle
+                      </th>
+                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Recipient
+                      </th>
+                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Status
+                      </th>
+                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Date & Time
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {paginatedTransactions.map((txn) => (
+                      <TransactionRow key={txn._id} transaction={txn} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3 p-2">
+                {paginatedTransactions.map((txn) => (
+                  <TransactionCard key={txn._id} transaction={txn} />
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
 
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-3 p-2">
-            {transactions.map((txn) => (
-              <TransactionCard key={txn._id} transaction={txn} />
-            ))}
-          </div>
+              {/* Pagination */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          )}
         </div>
       </div>
 
