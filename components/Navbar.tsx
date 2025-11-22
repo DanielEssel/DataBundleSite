@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Menu,
   X,
@@ -11,6 +11,7 @@ import {
   Settings,
   ShoppingBag,
   ChevronDown,
+  LayoutDashboard,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -27,20 +28,40 @@ export default function Navbar() {
   const [user, setUser] = useState<UserData | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   const isLoggedIn = Boolean(user);
 
-  // Load user from localStorage on mount
+  // Load user from localStorage on mount and listen for storage changes
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error("Failed to parse user data:", error);
+    const loadUser = () => {
+      const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
+      if (token && userData) {
+        try {
+          setUser(JSON.parse(userData));
+        } catch (error) {
+          console.error("Failed to parse user data:", error);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
       }
-    }
+    };
+
+    // Load initially
+    loadUser();
+
+    // Listen for storage changes (login/logout from other tabs)
+    window.addEventListener("storage", loadUser);
+    
+    // Custom event for same-tab login/logout
+    window.addEventListener("userAuthChanged", loadUser);
+
+    return () => {
+      window.removeEventListener("storage", loadUser);
+      window.removeEventListener("userAuthChanged", loadUser);
+    };
   }, []);
 
   // Close dropdown when clicking outside
@@ -55,10 +76,16 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem("authToken");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
     setProfileOpen(false);
+    setMenuOpen(false);
+    
+    // Dispatch custom event for other components
+    window.dispatchEvent(new Event("userAuthChanged"));
+    
     router.push("/");
   };
 
@@ -81,17 +108,34 @@ export default function Navbar() {
   ];
 
   const profileLinks = [
-    { name: "My Profile", href: "/profile", icon: <User className="w-4 h-4 text-gray-500" /> },
-    { name: "My Orders", href: "/orders", icon: <ShoppingBag className="w-4 h-4 text-gray-500" /> },
-    { name: "Settings", href: "/settings", icon: <Settings className="w-4 h-4 text-gray-500" /> },
+    { 
+      name: "Dashboard", 
+      href: "/dashboard/user", 
+      icon: <LayoutDashboard className="w-4 h-4 text-blue-500" /> 
+    },
+    { 
+      name: "My Orders", 
+      href: "/dashboard/user/orders", 
+      icon: <ShoppingBag className="w-4 h-4 text-gray-500" /> 
+    },
+    { 
+      name: "My Profile", 
+      href: "/dashboard/user/profile", 
+      icon: <User className="w-4 h-4 text-gray-500" /> 
+    },
+    { 
+      name: "Settings", 
+      href: "/settings", 
+      icon: <Settings className="w-4 h-4 text-gray-500" /> 
+    },
   ];
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="relative w-40 h-12 md:w-48 md:h-14">
+          <div className="relative w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-14">
             <Image
               src="/logos/acdatalogo.png"
               alt="AcDataHub logo"
@@ -108,10 +152,14 @@ export default function Navbar() {
             <Link
               key={link.name}
               href={link.href}
-              className="hover:text-blue-600 transition-colors duration-200 relative group"
+              className={`hover:text-blue-600 transition-colors duration-200 relative group ${
+                pathname === link.href ? "text-blue-600" : ""
+              }`}
             >
               {link.name}
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full" />
+              <span className={`absolute -bottom-1 left-0 h-0.5 bg-blue-600 transition-all duration-200 ${
+                pathname === link.href ? "w-full" : "w-0 group-hover:w-full"
+              }`} />
             </Link>
           ))}
         </nav>
@@ -149,7 +197,7 @@ export default function Navbar() {
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-slate-100">
                     <p className="text-sm font-semibold text-gray-800">{getFullName()}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{user?.email}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{user?.email}</p>
                   </div>
 
                   {/* Links */}
@@ -211,7 +259,7 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-slate-100 shadow-lg animate-slideDown">
-          <nav className="flex flex-col px-6 py-4 space-y-1">
+          <nav className="flex flex-col px-4 sm:px-6 py-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
             {/* User Info */}
             {isLoggedIn && (
               <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-slate-50 rounded-lg">
@@ -228,9 +276,9 @@ export default function Navbar() {
                     {getInitials()}
                   </div>
                 )}
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{getFullName()}</p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{getFullName()}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                 </div>
               </div>
             )}
@@ -241,7 +289,11 @@ export default function Navbar() {
                 key={link.name}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className="px-3 py-2.5 text-gray-700 hover:bg-slate-50 rounded-lg transition-colors"
+                className={`px-3 py-2.5 rounded-lg transition-colors ${
+                  pathname === link.href 
+                    ? "bg-blue-50 text-blue-600 font-medium" 
+                    : "text-gray-700 hover:bg-slate-50"
+                }`}
               >
                 {link.name}
               </Link>
@@ -263,10 +315,7 @@ export default function Navbar() {
                   </Link>
                 ))}
                 <button
-                  onClick={() => {
-                    handleLogout();
-                    setMenuOpen(false);
-                  }}
+                  onClick={handleLogout}
                   className="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left w-full mt-2"
                 >
                   <LogOut className="w-4 h-4" />
@@ -294,6 +343,22 @@ export default function Navbar() {
           </nav>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.2s ease-out;
+        }
+      `}</style>
     </header>
   );
 }

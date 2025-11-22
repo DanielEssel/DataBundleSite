@@ -20,13 +20,13 @@ export default function Footer() {
           <h3 className="font-semibold text-lg mb-3">Quick Links</h3>
           <ul className="space-y-2">
             <li>
-              <a href="/about" className="text-blue-100 hover:text-white transition">
-                About Us
+              <a href="/bundles" className="text-blue-100 hover:text-white transition">
+                Bundles
               </a>
             </li>
             <li>
-              <a href="/contact" className="text-blue-100 hover:text-white transition">
-                Contact
+              <a href="/how-it-works" className="text-blue-100 hover:text-white transition">
+                How It Works
               </a>
             </li>
             <li>
@@ -57,7 +57,7 @@ export default function Footer() {
           <p className="text-blue-100 text-sm">
             support@acdatahub.com  
             <br />
-            (+233) 055 742 4675
+            (+233) 055 516 8047
           </p>
         </div>
       </div>

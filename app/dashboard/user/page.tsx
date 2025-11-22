@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Package, Clock } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import OrderModal from "@/components/OrderModal";
+import OrdersTable, { Order } from "@/components/OrdersTable";
 
 // ============================================================================
 // TYPES
@@ -15,22 +16,7 @@ interface Bundle {
   price: number;
   telcoCode: string;
   validity?: string;
-}
-
-interface Transaction {
-  _id: string;
-  bundle?: Bundle | string;
-  bundleName?: string;
-  recipient?: string;
-  recipientPhone?: string;
-  status?: "success" | "pending" | "failed";
-  orderStatus?: string;
-  paymentStatus?: string;
-  deliveryStatus?: string;
-  date?: string;
-  time?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  dataAmount?: string;
 }
 
 interface UserProfile {
@@ -55,6 +41,7 @@ interface NetworkConfig {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const WHATSAPP_SUPPORT_NUMBER = "233557424675";
+const ITEMS_PER_PAGE = 5;
 
 const NETWORK_CONFIG: Record<string, NetworkConfig> = {
   MTN: {
@@ -89,25 +76,12 @@ const NETWORK_CONFIG: Record<string, NetworkConfig> = {
   },
 };
 
-const STATUS_STYLES: Record<"success" | "pending" | "failed", string> = {
-  success: "bg-green-50 text-green-700 border-green-200",
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  failed: "bg-red-50 text-red-700 border-red-200",
-};
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
 const getNetworkConfig = (telcoCode: string): NetworkConfig => {
   return NETWORK_CONFIG[telcoCode?.toUpperCase()] || NETWORK_CONFIG.OTHER;
-};
-
-const getBundleName = (transaction: Transaction): string => {
-  if (typeof transaction.bundle === "object" && transaction.bundle?.name) {
-    return transaction.bundle.name;
-  }
-  return transaction.bundleName || (transaction.bundle as string) || "—";
 };
 
 const getUserDisplayName = (user: UserProfile): string => {
@@ -118,33 +92,6 @@ const getUserDisplayName = (user: UserProfile): string => {
   );
 };
 
-const transformOrderData = (order: any): Transaction => {
-  const createdDate = order.createdAt ? new Date(order.createdAt) : null;
-
-  return {
-    ...order,
-    recipient: order.recipientPhone || order.recipient || "—",
-    date: createdDate
-      ? createdDate.toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })
-      : "—",
-    time: createdDate
-      ? createdDate.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-      : undefined,
-    status: (order.orderStatus || order.status || "pending") as
-      | "success"
-      | "pending"
-      | "failed",
-  };
-};
-
 const handleUnauthorized = (): void => {
   localStorage.removeItem("authToken");
   window.location.href = "/login";
@@ -153,16 +100,6 @@ const handleUnauthorized = (): void => {
 // ============================================================================
 // COMPONENTS
 // ============================================================================
-
-const StatusBadge: React.FC<{ status: "success" | "pending" | "failed" }> = ({
-  status,
-}) => (
-  <span
-    className={`px-3 py-1 rounded-full text-xs font-medium border ${STATUS_STYLES[status]}`}
-  >
-    {status}
-  </span>
-);
 
 const NetworkFilterButton: React.FC<{
   network: string;
@@ -232,50 +169,6 @@ const BundleCard: React.FC<{
   );
 };
 
-const TransactionRow: React.FC<{ transaction: Transaction }> = ({
-  transaction,
-}) => (
-  <tr className="hover:bg-gray-50">
-    <td className="py-3 md:py-4 px-4 md:px-6 font-medium text-gray-900 text-sm">
-      {getBundleName(transaction)}
-    </td>
-    <td className="py-3 md:py-4 px-4 md:px-6 text-gray-600 font-mono text-xs md:text-sm">
-      {transaction.recipient || "—"}
-    </td>
-    <td className="py-3 md:py-4 px-4 md:px-6">
-      <StatusBadge status={transaction.status || "pending"} />
-    </td>
-    <td className="py-3 md:py-4 px-4 md:px-6 text-gray-900 font-medium text-sm">
-      {transaction.date || "—"}
-      {transaction.time && (
-        <div className="text-gray-500 text-xs md:text-sm">
-          {transaction.time}
-        </div>
-      )}
-    </td>
-  </tr>
-);
-
-const TransactionCard: React.FC<{ transaction: Transaction }> = ({
-  transaction,
-}) => (
-  <div className="bg-gray-50 rounded-lg p-3 shadow-sm flex flex-col space-y-1">
-    <div className="flex justify-between items-center">
-      <span className="font-medium text-gray-900 text-sm">
-        {getBundleName(transaction)}
-      </span>
-      <StatusBadge status={transaction.status || "pending"} />
-    </div>
-    <div className="text-gray-600 text-xs font-mono">
-      Recipient: {transaction.recipient || "—"}
-    </div>
-    <div className="text-gray-500 text-xs">
-      Date: {transaction.date || "—"}{" "}
-      {transaction.time && `| Time: ${transaction.time}`}
-    </div>
-  </div>
-);
-
 const LoadingSpinner: React.FC = () => (
   <div className="flex justify-center items-center min-h-screen text-gray-600">
     <div className="text-center">
@@ -311,116 +204,21 @@ const WhatsAppButton: React.FC = () => (
   </a>
 );
 
-const Pagination: React.FC<{
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}> = ({ currentPage, totalPages, onPageChange }) => {
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const showEllipsisStart = currentPage > 3;
-    const showEllipsisEnd = currentPage < totalPages - 2;
-
-    if (totalPages <= 7) {
-      // Show all pages if 7 or fewer
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      // Always show first page
-      pages.push(1);
-
-      if (showEllipsisStart) {
-        pages.push("...");
-      }
-
-      // Show pages around current page
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (showEllipsisEnd) {
-        pages.push("...");
-      }
-
-      // Always show last page
-      pages.push(totalPages);
-    }
-
-    return pages;
-  };
-
-  if (totalPages <= 1) return null;
-
-  return (
-    <div className="flex items-center justify-center gap-2 py-4">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        Previous
-      </button>
-
-      <div className="flex gap-1">
-        {getPageNumbers().map((page, index) => {
-          if (page === "...") {
-            return (
-              <span
-                key={`ellipsis-${index}`}
-                className="px-3 py-2 text-gray-500"
-              >
-                ...
-              </span>
-            );
-          }
-
-          return (
-            <button
-              key={page}
-              onClick={() => onPageChange(page as number)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                currentPage === page
-                  ? "bg-blue-600 text-white"
-                  : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {page}
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        Next
-      </button>
-    </div>
-  );
-};
-
 // ============================================================================
 // MAIN DASHBOARD COMPONENT
 // ============================================================================
 
-export default function () {
+export default function Dashboard() {
   // State
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [bundles, setBundles] = useState<Bundle[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<string>("MTN");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
 
   // Fetch Dashboard Data
   useEffect(() => {
@@ -470,15 +268,10 @@ export default function () {
           ordersRes.json(),
         ]);
 
-        // Transform and set data
+        // Set data
         setUserData(userJson.data || userJson);
         setBundles(bundlesJson.data?.data || []);
-
-        // Transform orders with proper date, time, and recipient mapping
-        const transformedOrders = (ordersJson.data?.orders || []).map(
-          transformOrderData
-        );
-        setTransactions(transformedOrders);
+        setOrders(ordersJson.data?.orders || []);
       } catch (err: any) {
         console.error("Dashboard fetch error:", err);
         setError(err.message || "An unexpected error occurred");
@@ -500,14 +293,14 @@ export default function () {
     }, {});
   }, [bundles]);
 
-  // Paginate Transactions
-  const paginatedTransactions = useMemo(() => {
+  // Paginate Orders
+  const paginatedOrders = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
-    return transactions.slice(startIndex, endIndex);
-  }, [transactions, currentPage]);
+    return orders.slice(startIndex, endIndex);
+  }, [orders, currentPage]);
 
-  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(orders.length / ITEMS_PER_PAGE);
 
   // Event Handlers
   const handleBuyClick = useCallback((bundle: Bundle) => {
@@ -524,7 +317,7 @@ export default function () {
     setIsOrderModalOpen(false);
     setSelectedBundle(null);
 
-    // Refresh transactions
+    // Refresh orders
     const token = localStorage.getItem("authToken");
     if (!token) return;
 
@@ -540,14 +333,11 @@ export default function () {
       })
       .then((data) => {
         if (data) {
-          const transformedOrders = (data.data?.orders || []).map(
-            transformOrderData
-          );
-          setTransactions(transformedOrders);
+          setOrders(data.data?.orders || []);
           setCurrentPage(1); // Reset to first page after refresh
         }
       })
-      .catch((err) => console.error("Failed to refresh transactions:", err));
+      .catch((err) => console.error("Failed to refresh orders:", err));
   }, []);
 
   // Loading / Error States
@@ -556,6 +346,9 @@ export default function () {
   if (!userData) return null;
 
   const userName = getUserDisplayName(userData);
+  const lastOrderDate = orders[0]?.createdAt 
+    ? new Date(orders[0].createdAt).toLocaleDateString()
+    : "N/A";
 
   // Render
   return (
@@ -572,7 +365,7 @@ export default function () {
               <span>
                 Total Purchases:{" "}
                 <span className="font-semibold text-gray-900">
-                  {transactions.length}
+                  {orders.length}
                 </span>
               </span>
             </div>
@@ -581,7 +374,7 @@ export default function () {
               <span>
                 Last Purchase:{" "}
                 <span className="font-semibold text-gray-900">
-                  {transactions[0]?.date || "N/A"}
+                  {lastOrderDate}
                 </span>
               </span>
             </div>
@@ -617,68 +410,18 @@ export default function () {
           </div>
         </div>
 
-        {/* Transactions Section */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg md:text-xl font-bold text-gray-900">
-                Purchase History
-              </h2>
-              <span className="text-sm text-gray-500">
-                Showing {paginatedTransactions.length} of {transactions.length} transactions
-              </span>
-            </div>
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>No purchase history yet</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full min-w-[640px]">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                        Bundle
-                      </th>
-                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                        Recipient
-                      </th>
-                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                        Status
-                      </th>
-                      <th className="py-3 md:py-4 px-4 md:px-6 text-left text-xs font-semibold text-gray-600 uppercase">
-                        Date & Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {paginatedTransactions.map((txn) => (
-                      <TransactionRow key={txn._id} transaction={txn} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden space-y-3 p-2">
-                {paginatedTransactions.map((txn) => (
-                  <TransactionCard key={txn._id} transaction={txn} />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </>
-          )}
+        {/* Purchase History Section */}
+        <div className="mb-6">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+            Purchase History
+          </h2>
+          <OrdersTable
+            orders={paginatedOrders}
+            page={currentPage}
+            pageSize={ITEMS_PER_PAGE}
+            totalPages={totalPages}
+            setPage={setCurrentPage}
+          />
         </div>
       </div>
 
