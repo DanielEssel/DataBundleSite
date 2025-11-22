@@ -40,7 +40,7 @@ interface NetworkConfig {
 // ============================================================================
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-const WHATSAPP_SUPPORT_NUMBER = "233557424675";
+const WHATSAPP_SUPPORT_NUMBER = "233555168047";
 const ITEMS_PER_PAGE = 5;
 
 const NETWORK_CONFIG: Record<string, NetworkConfig> = {

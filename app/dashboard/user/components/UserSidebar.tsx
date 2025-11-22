@@ -17,7 +17,7 @@ export default function UserSidebar() {
     localStorage.removeItem("user");
 
     // ✅ Redirect to login page (or homepage)
-    router.push("/");
+    router.push("/login");
 
     // ✅ Close sidebar (for mobile)
     setOpen(false);
@@ -44,62 +44,64 @@ export default function UserSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static top-0 left-0 h-screen w-64 bg-white border-r flex flex-col z-50 md:z-auto shadow-xl md:shadow-none transition-transform duration-300 ease-in-out 
+        className={`fixed md:static top-0 left-0 h-full md:h-screen w-64 bg-white border-r flex flex-col z-50 md:z-auto shadow-xl md:shadow-none transition-transform duration-300 ease-in-out 
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
-        {/* Header Section */}
-        <div className="p-5 border-b relative flex-shrink-0">
+        {/* Header Section - Compact on mobile */}
+        <div className="p-4 md:p-5 border-b relative flex-shrink-0">
           {/* Close button for mobile */}
           <button
             onClick={() => setOpen(false)}
-            className="md:hidden absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+            className="md:hidden absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition-colors"
             aria-label="Close Sidebar"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <h2 className="font-bold text-xl text-blue-600">User Dashboard</h2>
+          <h2 className="font-bold text-lg md:text-xl text-blue-600 pr-8 md:pr-0">
+            User Dashboard
+          </h2>
         </div>
 
         {/* Navigation Section - Scrollable if needed */}
-        <nav className="flex-1 overflow-y-auto p-5">
-          <div className="space-y-2">
+        <nav className="flex-1 overflow-y-auto p-4 md:p-5">
+          <div className="space-y-1.5 md:space-y-2">
             <Link
               href="/dashboard/user"
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
               onClick={() => setOpen(false)}
             >
-              <Home className="w-5 h-5" />
+              <Home className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">Home</span>
             </Link>
 
             <Link
               href="/dashboard/user/orders"
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
               onClick={() => setOpen(false)}
             >
-              <History className="w-5 h-5" />
+              <History className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">Orders</span>
             </Link>
 
             <Link
               href="/dashboard/user/profile"
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
               onClick={() => setOpen(false)}
             >
-              <User className="w-5 h-5" />
+              <User className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">Profile</span>
             </Link>
           </div>
         </nav>
 
         {/* Logout Section - Stays at bottom */}
-        <div className="p-5 border-t flex-shrink-0">
+        <div className="p-4 md:p-5 border-t flex-shrink-0 bg-gray-50 md:bg-transparent">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors w-full"
+            className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors w-full"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">Logout</span>
           </button>
         </div>
