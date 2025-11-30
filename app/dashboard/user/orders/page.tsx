@@ -71,6 +71,16 @@ export default function UserOrders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-refresh every 5 seconds
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetchOrders(true);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, []);
+
+
   // Table-only filtering (search + date range)
   useEffect(() => {
     let results = [...orders];
