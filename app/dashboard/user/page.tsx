@@ -419,6 +419,7 @@ export default function Dashboard() {
             orders={paginatedOrders}
             page={currentPage}
             pageSize={ITEMS_PER_PAGE}
+            totalOrders={orders.length}
             totalPages={totalPages}
             setPage={setCurrentPage}
           />

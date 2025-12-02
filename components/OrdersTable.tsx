@@ -33,6 +33,7 @@ interface OrdersTableProps {
   page: number;
   pageSize: number;
   totalPages: number;
+  totalOrders: number;
   setPage: (page: number) => void;
 }
 
@@ -70,13 +71,14 @@ export default function OrdersTable({
   orders,
   page,
   pageSize,
+  totalOrders,
   totalPages,
   setPage,
 }: OrdersTableProps) {
-  const startIndex = orders.length === 0 ? 0 : (page - 1) * pageSize + 1;
-  const endIndex = Math.min(page * pageSize, orders.length);
+  const startIndex = totalOrders === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIndex = Math.min(page * pageSize, totalOrders);
 
-  if (orders.length === 0) {
+  if (totalOrders === 0) {
     return (
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden border p-8 sm:p-12 text-center">
         <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-3 sm:mb-4" />
@@ -271,7 +273,7 @@ export default function OrdersTable({
           <p className="text-xs text-gray-600 text-center">
             Showing <span className="font-semibold">{startIndex}</span> -{" "}
             <span className="font-semibold">{endIndex}</span> of{" "}
-            <span className="font-semibold">{orders.length}</span>
+            <span className="font-semibold">{totalOrders}</span>
           </p>
 
           <div className="flex items-center justify-center gap-2">
@@ -304,7 +306,7 @@ export default function OrdersTable({
           <p className="text-sm text-gray-600">
             Showing <span className="font-semibold">{startIndex}</span> -{" "}
             <span className="font-semibold">{endIndex}</span> of{" "}
-            <span className="font-semibold">{orders.length}</span>
+            <span className="font-semibold">{totalOrders}</span>
           </p>
 
           <div className="flex items-center gap-2">
