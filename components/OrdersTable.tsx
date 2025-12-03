@@ -1,31 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { ShoppingBag, ChevronLeft, ChevronRight } from "lucide-react";
 
-/**
- * Order type — keep consistent with backend.
- * Adjust fields here if your backend uses different names.
- */
 export interface Order {
   _id: string;
-  orderNo: string;
-  currency?: string;
-  totalAmount?: number;
-  orderStatus?: string;
-  paymentStatus?: string;
-  deliveryStatus?: string;
-  createdAt: string;
+  orderNumber: string;
+  user?: string;
   bundle?: {
+    _id?: string;
     name?: string;
-    dataAmount?: string;
+    dataAmount?: number | string;
+    price?: number;
     telcoCode?: string;
   };
+  recipientPhone?: string;
+  status?: string; // Main order status: "pending", "processing", "failed", "success", "cancelled"
+  paymentStatus?: string; // Payment status: "pending", "paid", "failed", "refunded"
+  telco?: string;
+  paymentMethod?: string;
+  deliveryStatus?: string; // Delivery status: "pending", "delivered", "failed"
+  totalAmount?: number;
+  currency?: string;
+  createdAt: string;
+  updatedAt?: string;
+  paymentReference?: string;
+  deliveredAt?: string;
+  deliveryMessage?: string;
+  deliveryReference?: string;
+  transactionId?: string;
   metadata?: {
     recipientPhone?: string;
   };
-  recipientPhone?: string;
   recipient?: string;
+  orderStatus?: string; // Backwards compatibility
+  orderNo?: string; // Backwards compatibility
+  __v?: number;
 }
 
 interface OrdersTableProps {
@@ -37,25 +47,78 @@ interface OrdersTableProps {
   setPage: (page: number) => void;
 }
 
-/** Small status badge with color mapping */
-function StatusBadge({ status }: { status?: string }) {
+/** Status badge with correct color mapping for each status type */
+function StatusBadge({ status, type }: { status?: string; type: 'order' | 'payment' | 'delivery' }) {
   const s = (status || "pending").toLowerCase();
 
+  // Different mappings for different status types
+  if (type === 'order') {
+    // Order status: "pending", "processing", "failed", "success", "cancelled"
+    const map: Record<string, string> = {
+      success: "bg-green-100 text-green-700",
+      completed: "bg-green-100 text-green-700",
+      processing: "bg-blue-100 text-blue-700",
+      pending: "bg-yellow-100 text-yellow-700",
+      failed: "bg-red-100 text-red-700",
+      cancelled: "bg-red-100 text-red-700",
+    };
+
+    const label =
+      s === "success" ? "Success" :
+      s === "completed" ? "Completed" :
+      s === "processing" ? "Processing" :
+      s === "pending" ? "Pending" :
+      s === "failed" ? "Failed" :
+      s === "cancelled" ? "Cancelled" :
+      s.charAt(0).toUpperCase() + s.slice(1);
+
+    const cls = map[s] || map.pending;
+
+    return (
+      <span className={`px-2 py-1 text-xs rounded-full font-medium ${cls}`}>
+        {label}
+      </span>
+    );
+  }
+
+  if (type === 'payment') {
+    // Payment status: "pending", "paid", "failed", "refunded"
+    const map: Record<string, string> = {
+      paid: "bg-green-100 text-green-700",
+      success: "bg-green-100 text-green-700",
+      pending: "bg-yellow-100 text-yellow-700",
+      failed: "bg-red-100 text-red-700",
+      refunded: "bg-orange-100 text-orange-700",
+    };
+
+    const label =
+      s === "paid" ? "Paid" :
+      s === "success" ? "Paid" :
+      s === "pending" ? "Pending" :
+      s === "failed" ? "Failed" :
+      s === "refunded" ? "Refunded" :
+      s.charAt(0).toUpperCase() + s.slice(1);
+
+    const cls = map[s] || map.pending;
+
+    return (
+      <span className={`px-2 py-1 text-xs rounded-full font-medium ${cls}`}>
+        {label}
+      </span>
+    );
+  }
+
+  // Delivery status: "pending", "delivered", "failed"
   const map: Record<string, string> = {
-    success: "bg-green-100 text-green-700",
-    paid: "bg-green-100 text-green-700",
     delivered: "bg-green-100 text-green-700",
     pending: "bg-yellow-100 text-yellow-700",
-    processing: "bg-yellow-100 text-yellow-700",
     failed: "bg-red-100 text-red-700",
-    cancelled: "bg-red-100 text-red-700",
-    expired: "bg-red-100 text-red-700",
   };
 
   const label =
-    s === "success" ? "Paid" :
-    s === "paid" ? "Paid" :
     s === "delivered" ? "Delivered" :
+    s === "pending" ? "Pending" :
+    s === "failed" ? "Failed" :
     s.charAt(0).toUpperCase() + s.slice(1);
 
   const cls = map[s] || map.pending;
@@ -71,8 +134,8 @@ export default function OrdersTable({
   orders,
   page,
   pageSize,
-  totalOrders,
   totalPages,
+  totalOrders,
   setPage,
 }: OrdersTableProps) {
   const startIndex = totalOrders === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -89,7 +152,7 @@ export default function OrdersTable({
   }
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl  overflow-hidden border border-blue-200">
+    <div className="bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-blue-200">
       {/* Mobile Card View */}
       <div className="block lg:hidden p-4 space-y-4">
         {orders.map((order) => {
@@ -109,12 +172,12 @@ export default function OrdersTable({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-500 mb-0.5">Order #</p>
-                    <p className="font-bold text-gray-900 text-sm">{order.orderNo}</p>
+                    <p className="font-bold text-gray-900 text-sm">{order.orderNumber || order.orderNo}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-medium text-gray-500 mb-0.5">Date</p>
                     <p className="text-xs text-gray-700 font-medium">
-                      {new Date (order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -135,7 +198,7 @@ export default function OrdersTable({
                       {order.bundle?.dataAmount || "N/A"}
                     </span>
                     <span className="bg-white px-2 py-1 rounded border border-gray-200">
-                      {order.bundle?.telcoCode || "N/A"}
+                      {order.bundle?.telcoCode || order.telco || "N/A"}
                     </span>
                   </div>
                 </div>
@@ -168,15 +231,15 @@ export default function OrdersTable({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-1.5">Order</p>
-                      <StatusBadge status={order.orderStatus} />
+                      <StatusBadge status={order.status || order.orderStatus} type="order" />
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-1.5">Payment</p>
-                      <StatusBadge status={order.paymentStatus} />
+                      <StatusBadge status={order.paymentStatus} type="payment" />
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-1.5">Delivery</p>
-                      <StatusBadge status={order.deliveryStatus} />
+                      <StatusBadge status={order.deliveryStatus} type="delivery" />
                     </div>
                   </div>
                 </div>
@@ -223,7 +286,7 @@ export default function OrdersTable({
                 return (
                   <tr key={order._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {order.orderNo}
+                      {order.orderNumber || order.orderNo}
                     </td>
 
                     <td className="px-6 py-4">
@@ -232,7 +295,7 @@ export default function OrdersTable({
                           {order.bundle?.name || "N/A"}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {order.bundle?.dataAmount || "N/A"} • {order.bundle?.telcoCode || "N/A"}
+                          {order.bundle?.dataAmount || "N/A"} • {order.bundle?.telcoCode || order.telco || "N/A"}
                         </span>
                       </div>
                     </td>
@@ -244,15 +307,15 @@ export default function OrdersTable({
                     </td>
 
                     <td className="px-6 py-4">
-                      <StatusBadge status={order.orderStatus} />
+                      <StatusBadge status={order.status || order.orderStatus} type="order" />
                     </td>
 
                     <td className="px-6 py-4">
-                      <StatusBadge status={order.paymentStatus} />
+                      <StatusBadge status={order.paymentStatus} type="payment" />
                     </td>
 
                     <td className="px-6 py-4">
-                      <StatusBadge status={order.deliveryStatus} />
+                      <StatusBadge status={order.deliveryStatus} type="delivery" />
                     </td>
 
                     <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -322,7 +385,6 @@ export default function OrdersTable({
             <div className="flex items-center gap-1">
               {Array.from({ length: totalPages }).map((_, i) => {
                 const pageNum = i + 1;
-                // Show first, last, current, and adjacent pages
                 if (
                   pageNum === 1 ||
                   pageNum === totalPages ||

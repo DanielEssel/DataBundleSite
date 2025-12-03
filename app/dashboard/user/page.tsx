@@ -218,7 +218,6 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch Dashboard Data
   useEffect(() => {
@@ -241,7 +240,7 @@ export default function Dashboard() {
           fetch(`${API_BASE}/api/bundles?page=1`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(`${API_BASE}/api/orders`, {
+          fetch(`${API_BASE}/api/orders?page=1&limit=10`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -293,15 +292,6 @@ export default function Dashboard() {
     }, {});
   }, [bundles]);
 
-  // Paginate Orders
-  const paginatedOrders = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    return orders.slice(startIndex, endIndex);
-  }, [orders, currentPage]);
-
-  const totalPages = Math.ceil(orders.length / ITEMS_PER_PAGE);
-
   // Event Handlers
   const handleBuyClick = useCallback((bundle: Bundle) => {
     setSelectedBundle(bundle);
@@ -334,7 +324,6 @@ export default function Dashboard() {
       .then((data) => {
         if (data) {
           setOrders(data.data?.orders || []);
-          setCurrentPage(1); // Reset to first page after refresh
         }
       })
       .catch((err) => console.error("Failed to refresh orders:", err));
@@ -412,16 +401,24 @@ export default function Dashboard() {
 
         {/* Purchase History Section */}
         <div className="mb-6">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
-            Purchase History
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+              Recent Purchase History
+            </h2>
+            <a
+              href="dashboard/user/orders"
+              className="text-sm md:text-base text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              View All →
+            </a>
+          </div>
           <OrdersTable
-            orders={paginatedOrders}
-            page={currentPage}
-            pageSize={ITEMS_PER_PAGE}
+            orders={orders}
+            page={1}
+            pageSize={10}
             totalOrders={orders.length}
-            totalPages={totalPages}
-            setPage={setCurrentPage}
+            totalPages={1}
+            setPage={() => {}}
           />
         </div>
       </div>

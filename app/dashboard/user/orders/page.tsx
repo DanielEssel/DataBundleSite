@@ -12,32 +12,46 @@ import {
 } from "lucide-react";
 import OrdersTable, { Order } from "@/components/OrdersTable";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10; // Match your backend page size
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function UserOrders() {
-  const [orders, setOrders] = useState<Order[]>([]); // full list from backend (never mutated by search)
-  const [filtered, setFiltered] = useState<Order[]>([]); // displayed list (search + date)
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  // Filters (only affect `filtered`)
+  // Stats
+  const [stats, setStats] = useState({ total: 0, paid: 0, pending: 0, failed: 0 });
+
+  // Filters
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState<string | null>(null);
   const [dateTo, setDateTo] = useState<string | null>(null);
 
-  // Pagination (for filtered)
-  const [page, setPage] = useState(1);
-
-  // Fetch orders from backend (assumes response structure you provided)
-  const fetchOrders = async (isRefresh = false) => {
+  // Fetch orders with pagination and filters
+  const fetchOrders = async (page = 1, isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
       const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-      const res = await fetch(`${API_URL}/api/orders`, {
+      
+      // Build query params
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: PAGE_SIZE.toString(),
+      });
+      
+      if (search) params.append("search", search);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+
+      const res = await fetch(`${API_URL}/api/orders?${params}`, {
         headers: { Authorization: token ? `Bearer ${token}` : "" },
       });
 
@@ -46,89 +60,53 @@ export default function UserOrders() {
       if (!res.ok) {
         setError(payload?.message || "Failed to fetch orders");
         setOrders([]);
-        setFiltered([]);
+        setTotalOrders(0);
         return;
       }
 
-      // structure: { success, message, data: { orders, totalOrders, currentPage, totalPages }, timestamp }
-      const ordersData: Order[] = payload?.data?.orders || [];
-      setOrders(ordersData);
-      setFiltered(ordersData);
+      const data = payload?.data;
+      setOrders(data?.orders || []);
+      setTotalOrders(data?.totalOrders || 0);
+      setTotalPages(data?.totalPages || 1);
+      setCurrentPage(data?.currentPage || 1);
+      
+      // Update stats (you may want a separate endpoint for this)
+      calculateStats(data?.orders || []);
+      
       setError("");
     } catch (err) {
       console.error(err);
       setError("Network error. Please try again.");
       setOrders([]);
-      setFiltered([]);
+      setTotalOrders(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Table-only filtering (search + date range)
-  useEffect(() => {
-    let results = [...orders];
-    const q = search.trim().toLowerCase();
-
-    if (q) {
-      results = results.filter((o) => {
-        const phone =
-          (o?.metadata?.recipientPhone || o?.recipientPhone || o?.recipient || "").toLowerCase();
-        return (
-          (o.orderNo || "").toLowerCase().includes(q) ||
-          (o.bundle?.name || "").toLowerCase().includes(q) ||
-          phone.includes(q) ||
-          (o.bundle?.telcoCode || "").toLowerCase().includes(q)
-        );
-      });
-    }
-
-    if (dateFrom) {
-      const fromTs = new Date(dateFrom).setHours(0, 0, 0, 0);
-      results = results.filter((o) => new Date(o.createdAt).getTime() >= fromTs);
-    }
-
-    if (dateTo) {
-      const toTs = new Date(dateTo).setHours(23, 59, 59, 999);
-      results = results.filter((o) => new Date(o.createdAt).getTime() <= toTs);
-    }
-
-    setFiltered(results);
-    setPage(1);
-  }, [search, dateFrom, dateTo, orders]);
-
-  // Stats: ALWAYS derived from `orders` (NOT filtered)
-  const stats = useMemo(() => {
-    const total = orders.length;
-    // paymentStatus values may be "success", "paid", "pending", "failed", "cancelled" etc.
+  const calculateStats = (ordersList: Order[]) => {
+    // Note: Stats should ideally come from backend to show ALL orders
     const lower = (s?: string) => (s || "").toLowerCase();
-
-    const paid = orders.filter((o) => {
+    
+    const paid = ordersList.filter((o) => {
       const p = lower(o.paymentStatus);
       return p === "success" || p === "paid";
     }).length;
 
-    const pending = orders.filter((o) => lower(o.paymentStatus) === "pending").length;
-    const failed = orders.filter((o) => {
+    const pending = ordersList.filter((o) => lower(o.paymentStatus) === "pending").length;
+    
+    const failed = ordersList.filter((o) => {
       const p = lower(o.paymentStatus);
       return p === "failed" || p === "cancelled" || p === "expired";
     }).length;
 
-    return { total, paid, pending, failed };
-  }, [orders]);
+    setStats({ total: ordersList.length, paid, pending, failed });
+  };
 
-  // Pagination calculations for filtered list
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+  useEffect(() => {
+    fetchOrders(1);
+  }, [search, dateFrom, dateTo]);
 
   const clearFilters = () => {
     setSearch("");
@@ -136,39 +114,42 @@ export default function UserOrders() {
     setDateTo(null);
   };
 
-  // CSV export of the currently filtered list
+  const handlePageChange = (newPage: number) => {
+    fetchOrders(newPage);
+  };
+
+  // CSV export - you may want to fetch all orders for this
   const exportCsv = () => {
-    if (!filtered.length) return;
+    if (!orders.length) return;
     const headers = [
       "orderNo",
       "bundle",
       "telcoCode",
       "recipient",
-      "recipientPhone",
       "amount",
       "currency",
-      "orderStatus",
+      "status",
       "paymentStatus",
       "deliveryStatus",
       "createdAt",
     ];
 
-    const rows = filtered.map((o) => [
-      o.orderNo ?? "",
+    const rows = orders.map((o) => [
+      o.orderNumber ?? o.orderNo ?? "",
       o.bundle?.name ?? "",
       o.bundle?.telcoCode ?? "",
-      o.recipient ?? "",
-      o.metadata?.recipientPhone ?? o.recipientPhone ?? "",
+      o.recipientPhone ?? "",
       o.totalAmount != null ? o.totalAmount.toString() : "",
       o.currency ?? "",
-      o.orderStatus ?? "",
+      o.status ?? "",
       o.paymentStatus ?? "",
       o.deliveryStatus ?? "",
       o.createdAt ?? "",
     ]);
 
-    const csv =
-      [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -208,7 +189,7 @@ export default function UserOrders() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <button
-                onClick={() => fetchOrders(true)}
+                onClick={() => fetchOrders(currentPage, true)}
                 disabled={refreshing}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-colors backdrop-blur-sm text-sm sm:text-base"
               >
@@ -229,10 +210,10 @@ export default function UserOrders() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 pb-8 sm:pb-12">
-        {/* Stats cards (always from backend orders) */}
+        {/* Stats cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
           {[
-            { label: "Total Orders", value: stats.total, icon: ShoppingBag, color: "blue" },
+            { label: "Total Orders", value: totalOrders, icon: ShoppingBag, color: "blue" },
             { label: "Paid", value: stats.paid, icon: CheckCircle2, color: "green" },
             { label: "Pending", value: stats.pending, icon: Clock, color: "yellow" },
             { label: "Failed", value: stats.failed, icon: XCircle, color: "red" },
@@ -256,7 +237,7 @@ export default function UserOrders() {
           </div>
         )}
 
-        {/* Filters (table only) */}
+        {/* Filters */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6 border">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -309,18 +290,18 @@ export default function UserOrders() {
         {/* Showing count */}
         <div className="mb-3 sm:mb-4 flex items-center justify-between px-1">
           <p className="text-sm sm:text-base text-gray-600">
-            Showing <span className="font-semibold">{filtered.length}</span> result(s)
+            Showing <span className="font-semibold">{totalOrders}</span> total order(s)
           </p>
         </div>
 
         {/* Orders table */}
         <OrdersTable
-          orders={paginated}
-          page={page}
+          orders={orders}
+          page={currentPage}
           pageSize={PAGE_SIZE}
           totalPages={totalPages}
-          totalOrders={filtered.length}
-          setPage={setPage}
+          totalOrders={totalOrders}
+          setPage={handlePageChange}
         />
       </div>
     </div>
