@@ -108,7 +108,25 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
+    // Clear localStorage
     localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminToken");
+
+    // Clear cookies
+    try {
+      document.cookie = `authToken=; path=/; max-age=0`;
+      document.cookie = `user=; path=/; max-age=0`;
+      document.cookie = `token=; path=/; max-age=0`;
+      document.cookie = `adminToken=; path=/; max-age=0`;
+    } catch (e) {
+      console.warn("Could not clear cookies:", e);
+    }
+
+    // Notify other components
+    window.dispatchEvent(new Event("userAuthChanged"));
+
     router.push("/login");
   };
 

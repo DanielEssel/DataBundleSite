@@ -201,6 +201,19 @@ export default function OrderModal({
             </div>
           )}
 
+          {/* Important Warning */}
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-red-500 rounded-lg p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm font-bold text-red-900">
+                ⚠️ Important Notice
+              </p>
+            </div>
+            <p className="text-sm text-red-800 leading-relaxed">
+              <span className="font-semibold">Make sure the number entered is correct.</span> There will be <span className="font-semibold underline">no reversal or refund</span> after completing the transaction.
+            </p>
+          </div>
+
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button

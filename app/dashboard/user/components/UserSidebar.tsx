@@ -10,16 +10,27 @@ export default function UserSidebar() {
   const router = useRouter();
 
   const handleLogout = () => {
-    // ✅ Clear auth token
+    // Clear local storage
     localStorage.removeItem("authToken");
-
-    // Optional: clear any other saved user data
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("adminToken");
 
-    // ✅ Redirect to login page (or homepage)
+    // Clear cookies
+    try {
+      document.cookie = `authToken=; path=/; max-age=0`;
+      document.cookie = `user=; path=/; max-age=0`;
+      document.cookie = `token=; path=/; max-age=0`;
+      document.cookie = `adminToken=; path=/; max-age=0`;
+    } catch (e) {
+      console.warn("Could not clear cookies:", e);
+    }
+
+    // Notify other components/tabs
+    window.dispatchEvent(new Event("userAuthChanged"));
+
+    // Redirect to login and close sidebar
     router.push("/login");
-
-    // ✅ Close sidebar (for mobile)
     setOpen(false);
   };
 

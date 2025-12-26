@@ -76,17 +76,30 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = () => {
+    // Clear local storage
     localStorage.removeItem("authToken");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("adminToken");
+
+    // Clear cookies (so server middleware won't treat user as authenticated)
+    try {
+      document.cookie = `authToken=; path=/; max-age=0`;
+      document.cookie = `user=; path=/; max-age=0`;
+      document.cookie = `token=; path=/; max-age=0`;
+      document.cookie = `adminToken=; path=/; max-age=0`;
+    } catch (e) {
+      console.warn("Could not clear cookies:", e);
+    }
+
     setUser(null);
     setProfileOpen(false);
     setMenuOpen(false);
-    
-    // Dispatch custom event for other components
+
+    // Notify other components/tabs
     window.dispatchEvent(new Event("userAuthChanged"));
-    
-    router.push("/");
+
+    router.push("/login");
   };
 
   const getInitials = () => {
