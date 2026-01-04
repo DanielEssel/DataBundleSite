@@ -96,7 +96,7 @@ export default function PaymentVerificationPage() {
     });
 
   const goToDashboard = () => {
-    router.push("/");
+    router.push("/dashboard/user");
   };
 
   // ------------------ LOADING STATE ------------------

@@ -6,12 +6,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 
 type MessageType = "success" | "error" | "";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +51,7 @@ export default function LoginPage() {
       );
 
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data?.message || "Login failed");
       }
@@ -54,11 +63,11 @@ export default function LoginPage() {
         throw new Error("Invalid login response");
       }
 
-      // ✅ Save to localStorage (client-side usage)
+      // ✅ Save to localStorage
       localStorage.setItem("authToken", token);
       localStorage.setItem("user", JSON.stringify(userData));
 
-      // ✅ Save to cookies (middleware usage)
+      // ✅ Save to cookies (for middleware)
       document.cookie = `authToken=${token}; path=/; max-age=${
         60 * 60 * 24 * 7
       }; SameSite=Lax`;
@@ -74,7 +83,6 @@ export default function LoginPage() {
           ? "/dashboard/admin"
           : "/dashboard/user";
 
-      // 🔁 Let middleware finalize the redirect
       setTimeout(() => {
         router.replace(redirectPath);
       }, 800);
@@ -93,6 +101,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="w-full max-w-md mx-4 bg-white/90 backdrop-blur-xl border shadow-2xl rounded-2xl p-8"
       >
+        {/* Logo & Header */}
         <div className="text-center mb-6">
           <Image
             src="/logos/acdatalogo.png"
@@ -108,7 +117,9 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Email */}
           <div>
             <label className="text-sm font-semibold flex items-center gap-2">
               <Mail className="w-4 h-4 text-blue-600" /> Email Address
@@ -122,6 +133,7 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Password */}
           <div>
             <label className="text-sm font-semibold flex items-center gap-2">
               <Lock className="w-4 h-4 text-blue-600" /> Password
@@ -137,36 +149,61 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
               >
                 {showPassword ? <EyeOff /> : <Eye />}
               </button>
             </div>
           </div>
 
+          {/* Forgot Password */}
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => router.push("/auth/forgot-password")}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          {/* Submit Button */}
           <Button disabled={loading} className="w-full">
             {loading ? "Signing in..." : "Sign In"}
           </Button>
+
+          {/* Register */}
+          <div className="text-center text-sm text-slate-600">
+            Don’t have an account?{" "}
+            <button
+              type="button"
+              onClick={() => router.push("/register")}
+              className="font-semibold text-blue-600 hover:underline"
+            >
+              Create one
+            </button>
+          </div>
         </form>
 
+        {/* Message */}
         <AnimatePresence>
           {message && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mt-4 p-4 rounded-lg ${
+              className={`mt-4 p-4 rounded-lg flex items-center gap-2 ${
                 messageType === "success"
                   ? "bg-green-50 text-green-700"
                   : "bg-red-50 text-red-700"
               }`}
             >
               {messageType === "success" ? (
-                <CheckCircle className="inline mr-2" />
+                <CheckCircle className="w-5 h-5" />
               ) : (
-                <AlertCircle className="inline mr-2" />
+                <AlertCircle className="w-5 h-5" />
               )}
-              {message}
+              <span>{message}</span>
             </motion.div>
           )}
         </AnimatePresence>
