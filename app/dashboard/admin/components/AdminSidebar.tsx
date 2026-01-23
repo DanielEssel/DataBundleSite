@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
+
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -21,6 +23,7 @@ export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Close sidebar on mobile when clicking outside
   useEffect(() => {
@@ -69,8 +72,28 @@ export default function AdminSidebar() {
   ];
 
   const handleLogout = () => {
-    // Implement logout logic
-    console.log("Logging out...");
+    // Clear local storage
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("adminToken");
+
+    // Clear cookies
+    try {
+      document.cookie = `authToken=; path=/; max-age=0`;
+      document.cookie = `user=; path=/; max-age=0`;
+      document.cookie = `token=; path=/; max-age=0`;
+      document.cookie = `adminToken=; path=/; max-age=0`;
+    } catch (e) {
+      console.warn("Could not clear cookies:", e);
+    }
+
+    // Notify other components/tabs
+    window.dispatchEvent(new Event("userAuthChanged"));
+
+    // Redirect to login and close sidebar
+    router.push("/login");
+    setOpen(false);
   };
 
   return (
