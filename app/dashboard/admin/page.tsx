@@ -6,20 +6,19 @@ import AdminHeader from "./components/AdminHeader";
 import AdminCard from "./components/AdminCard";
 import CreateBundleModal from "./components/CreateBundleModal";
 import { useRouter } from "next/navigation";
-import {
-  ShoppingBag,
-  Users,
-  Package,
-  CreditCard,
-  Clock,
-} from "lucide-react";
+import { ShoppingBag, Users, Package, CreditCard, Clock } from "lucide-react";
+
+import { getTokenExpiryMs, isTokenExpired, logout } from "@/lib/jwtAuth";
+import { authFetch } from "@/lib/authFetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function AdminDashboard() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     verifiedUsers: 0,
@@ -29,17 +28,52 @@ export default function AdminDashboard() {
     totalOrders: 0,
     pendingOrders: 0,
   });
+
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  // ✅ Check auth and role on mount
+  const [showCreateBundle, setShowCreateBundle] = useState(false);
+  const [newBundle, setNewBundle] = useState({
+    name: "",
+    description: "",
+    price: 0,
+    dataAmount: "",
+    telcoCode: "MTN" as string,
+  });
+
+  const [toastMessage, setToastMessage] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToastMessage({ message, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // ✅ Auth + role + auto logout at expiry
   useEffect(() => {
+    let timer: number | undefined;
+
     const checkAuth = () => {
       const token = localStorage.getItem("authToken");
       const user = localStorage.getItem("user");
 
       if (!token || !user) {
-        router.replace("/auth/login");
+        router.replace("/login");
         return;
+      }
+
+      // ✅ logout immediately if expired
+      if (isTokenExpired(token)) {
+        logout(router);
+        return;
+      }
+
+      // ✅ schedule logout exactly at expiry time
+      const expMs = getTokenExpiryMs(token);
+      if (expMs) {
+        const msLeft = expMs - Date.now();
+        timer = window.setTimeout(() => logout(router), Math.max(msLeft, 0));
       }
 
       try {
@@ -50,38 +84,40 @@ export default function AdminDashboard() {
         }
         setAuthorized(true);
       } catch (error) {
-        console.error("Error parsing user:", error);
-        router.replace("/auth/login");
+        router.replace("/login");
       }
     };
 
     checkAuth();
+
+    // ✅ cleanup timer
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
   }, [router]);
 
+  // ✅ Fetch dashboard stats only after authorized
   useEffect(() => {
-    if (authorized) {
-      fetchDashboardStats();
-    }
+    if (authorized) fetchDashboardStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authorized]);
 
   const fetchDashboardStats = async () => {
     setLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-      const headers = { Authorization: token ? `Bearer ${token}` : "" };
-
-      // Fetch users
-      const usersRes = await fetch(`${API_URL}/api/auth/users?limit=1`, { headers });
+      // ✅ Users
+      const usersRes = await authFetch(router, `${API_URL}/api/auth/users?limit=50`);
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         const pagination = usersData?.pagination || {};
         const allUsers = usersData?.data || [];
-        const totalUsers = pagination.total || 0;
-        const verifiedCount = allUsers.filter((u: any) => u.isverified).length;
-        const adminCount = allUsers.filter((u: any) => u.role === 'admin').length;
-        const agentCount = allUsers.filter((u: any) => u.role === 'agent').length;
 
-        setStats(prev => ({
+        const totalUsers = pagination.total || allUsers.length || 0;
+        const verifiedCount = allUsers.filter((u: any) => u.isverified).length;
+        const adminCount = allUsers.filter((u: any) => u.role === "admin").length;
+        const agentCount = allUsers.filter((u: any) => u.role === "agent").length;
+
+        setStats((prev) => ({
           ...prev,
           totalUsers,
           verifiedUsers: verifiedCount,
@@ -90,76 +126,68 @@ export default function AdminDashboard() {
         }));
       }
 
-      // Fetch bundles
-      const bundlesRes = await fetch(`${API_URL}/api/bundles/admin?limit=1`, { headers });
+      // ✅ Bundles
+      const bundlesRes = await authFetch(router, `${API_URL}/api/bundles/admin?limit=1`);
       if (bundlesRes.ok) {
         const bundlesData = await bundlesRes.json();
-        const totalBundles = bundlesData?.pagination?.totalCount || bundlesData?.pagination?.total || 0;
-        setStats(prev => ({ ...prev, totalBundles }));
+        const totalBundles =
+          bundlesData?.pagination?.totalCount || bundlesData?.pagination?.total || 0;
+
+        setStats((prev) => ({ ...prev, totalBundles }));
       }
 
-      // Fetch orders
-      const ordersRes = await fetch(`${API_URL}/api/auth/orders?limit=5`, { headers });
+      // ✅ Orders
+      const ordersRes = await authFetch(router, `${API_URL}/api/auth/orders?limit=5`);
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         const pagination = ordersData?.pagination || {};
         const allOrders = ordersData?.data || [];
-        const totalOrders = pagination.total || 0;
-        const pendingCount = allOrders.filter((o: any) => o.status === 'pending').length;
 
-        setStats(prev => ({
+        const totalOrders = pagination.total || allOrders.length || 0;
+        const pendingCount = allOrders.filter((o: any) => o.status === "pending").length;
+
+        setStats((prev) => ({
           ...prev,
           totalOrders,
           pendingOrders: pendingCount,
         }));
 
-        // Set recent activity from orders
+        // ✅ Recent activity (from orders)
         const activity = allOrders.slice(0, 5).map((order: any) => ({
-          user: `${order.user?.firstName ?? ''} ${order.user?.lastName ?? ''}`.trim() || 'Unknown',
-          text: `${order.bundle?.name ?? 'Order'} - ${order.orderNumber}`,
-          status: order.status === 'success' ? 'success' : order.status === 'pending' ? 'pending' : 'failed',
+          user:
+            `${order.user?.firstName ?? ""} ${order.user?.lastName ?? ""}`.trim() ||
+            "Unknown",
+          text: `${order.bundle?.name ?? "Order"} - ${order.orderNumber}`,
+          status:
+            order.status === "success"
+              ? "success"
+              : order.status === "pending"
+              ? "pending"
+              : "failed",
           timestamp: order.createdAt,
         }));
+
         setRecentActivity(activity);
       }
     } catch (err) {
       console.error("Error fetching dashboard stats:", err);
+      showToast("Error fetching dashboard stats", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const [showCreateBundle, setShowCreateBundle] = useState(false);
-  const [newBundle, setNewBundle] = useState({
-    name: "",
-    description: "",
-    price: 0,
-    dataAmount: "",
-    telcoCode: "MTN" as string,
-  });
-  const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage({ message, type });
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
   const handleAddBundle = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-
-      const res = await fetch(`${API_URL}/api/bundles`, {
+      const res = await authFetch(router, `${API_URL}/api/bundles`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newBundle),
       });
 
       if (!res.ok) {
-        const payload = await res.json();
+        const payload = await res.json().catch(() => ({}));
         showToast(payload?.message || "Failed to create bundle", "error");
         return;
       }
@@ -167,21 +195,22 @@ export default function AdminDashboard() {
       setShowCreateBundle(false);
       setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN" });
       showToast("Bundle created successfully");
+
+      // Optional: refresh bundles/orders stats after creating bundle
+      fetchDashboardStats();
     } catch (err) {
       console.error(err);
       showToast("Error creating bundle", "error");
     }
   };
 
-  const navigateTo = (path: string) => {
-    router.push(path);
-  };
+  const navigateTo = (path: string) => router.push(path);
 
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -190,136 +219,134 @@ export default function AdminDashboard() {
 
   return (
     <>
-    <AdminLayout>
-      <AdminHeader
-        title="Admin Dashboard"
-        subtitle="Welcome back, Admin"
-      />
+      <AdminLayout>
+        <AdminHeader title="Admin Dashboard" subtitle="Welcome back, Admin" />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <AdminCard
-          title="Total Users"
-          value={stats.totalUsers.toString()}
-          icon={<Users className="w-5 h-5" />}
-          color="blue"
-          loading={loading}
-        />
-        <AdminCard
-          title="Total Bundles"
-          value={stats.totalBundles.toString()}
-          icon={<Package className="w-5 h-5" />}
-          color="purple"
-          loading={loading}
-        />
-        <AdminCard
-          title="Pending Orders"
-          value={stats.pendingOrders.toString()}
-          icon={<Clock className="w-5 h-5" />}
-          color="orange"
-          loading={loading}
-        />
-        <AdminCard
-          title="Total Orders"
-          value={stats.totalOrders.toString()}
-          icon={<CreditCard className="w-5 h-5" />}
-          color="green"
-          loading={loading}
-        />
-      </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <AdminCard
+            title="Total Users"
+            value={stats.totalUsers.toString()}
+            icon={<Users className="w-5 h-5" />}
+            color="blue"
+            loading={loading}
+          />
+          <AdminCard
+            title="Total Bundles"
+            value={stats.totalBundles.toString()}
+            icon={<Package className="w-5 h-5" />}
+            color="purple"
+            loading={loading}
+          />
+          <AdminCard
+            title="Pending Orders"
+            value={stats.pendingOrders.toString()}
+            icon={<Clock className="w-5 h-5" />}
+            color="orange"
+            loading={loading}
+          />
+          <AdminCard
+            title="Total Orders"
+            value={stats.totalOrders.toString()}
+            icon={<CreditCard className="w-5 h-5" />}
+            color="green"
+            loading={loading}
+          />
+        </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        {/* Quick Actions */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
               onClick={() => navigateTo("/dashboard/admin/orders")}
               className="p-4 border rounded-lg hover:bg-blue-50 transition text-left"
             >
-            <div className="flex gap-3 items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <ShoppingBag className="w-5 h-5 text-blue-600" />
+              <div className="flex gap-3 items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <ShoppingBag className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Process Orders</p>
+                  <p className="text-sm text-gray-500">Manage pending orders</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Process Orders</p>
-                <p className="text-sm text-gray-500">Manage pending orders</p>
-              </div>
-            </div>
-          </button>
+            </button>
 
-            <button 
+            <button
               onClick={() => setShowCreateBundle(true)}
               className="p-4 border rounded-lg hover:bg-green-50 transition text-left"
             >
-            <div className="flex gap-3 items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Package className="w-5 h-5 text-green-600" />
+              <div className="flex gap-3 items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Package className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Add Bundle</p>
+                  <p className="text-sm text-gray-500">Create new data bundle</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Add Bundle</p>
-                <p className="text-sm text-gray-500">Create new data bundle</p>
-              </div>
-            </div>
-          </button>
+            </button>
 
-            <button 
+            <button
               onClick={() => navigateTo("/dashboard/admin/users")}
               className="p-4 border rounded-lg hover:bg-purple-50 transition text-left"
             >
-            <div className="flex gap-3 items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="font-medium">Manage Users</p>
-                <p className="text-sm text-gray-500">View and edit users</p>
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-6 border-b">
-          <h3 className="text-lg font-semibold">Recent Activity</h3>
-          <p className="text-sm text-gray-500">Latest orders and transactions</p>
-        </div>
-
-        <div className="p-6 space-y-4">
-          {recentActivity.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No recent activity</p>
-          ) : (
-            recentActivity.map((item, idx) => (
-              <div key={idx} className="flex justify-between items-center">
-                <div>
-                  <p>
-                    <span className="font-medium">{item.user}</span> {item.text}
-                  </p>
-                  {item.timestamp && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </p>
-                  )}
+              <div className="flex gap-3 items-center">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Users className="w-5 h-5 text-purple-600" />
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
-                    item.status === "success"
-                      ? "bg-green-100 text-green-700"
-                      : item.status === "failed"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  {item.status}
-                </span>
+                <div>
+                  <p className="font-medium">Manage Users</p>
+                  <p className="text-sm text-gray-500">View and edit users</p>
+                </div>
               </div>
-            ))
-          )}
+            </button>
+          </div>
         </div>
-      </div>
-    </AdminLayout>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-semibold">Recent Activity</h3>
+            <p className="text-sm text-gray-500">Latest orders and transactions</p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {recentActivity.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No recent activity</p>
+            ) : (
+              recentActivity.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <div>
+                    <p>
+                      <span className="font-medium">{item.user}</span> {item.text}
+                    </p>
+                    {item.timestamp && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
+                      item.status === "success"
+                        ? "bg-green-100 text-green-700"
+                        : item.status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </AdminLayout>
 
       {/* Create Bundle Modal */}
       <CreateBundleModal
@@ -332,11 +359,13 @@ export default function AdminDashboard() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className={`fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-lg animate-in fade-in slide-in-from-bottom-4 ${
-          toastMessage.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        }`}>
+        <div
+          className={`fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-lg animate-in fade-in slide-in-from-bottom-4 ${
+            toastMessage.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
+        >
           <p className="flex items-center gap-2">
-            {toastMessage.type === 'success' ? '✓' : '✕'} {toastMessage.message}
+            {toastMessage.type === "success" ? "✓" : "✕"} {toastMessage.message}
           </p>
         </div>
       )}

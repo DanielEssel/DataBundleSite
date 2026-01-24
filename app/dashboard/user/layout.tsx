@@ -1,9 +1,70 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 import Sidebar from "@/app/dashboard/user/components/UserSidebar";
 import Header from "@/app/dashboard/user/components/UserHeader";
 
+import { getTokenExpiryMs, isTokenExpired, logout } from "@/lib/jwtAuth";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    let timer: number | undefined;
+
+    const runAuthGuard = () => {
+      const token = localStorage.getItem("authToken");
+      const user = localStorage.getItem("user");
+
+      // ✅ Not logged in
+      if (!token || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      // ✅ Token expired
+      if (isTokenExpired(token)) {
+        logout(router);
+        return;
+      }
+
+      // ✅ User role protection (user routes only)
+      try {
+        const userData = JSON.parse(user);
+        if (userData?.role === "admin") {
+          router.replace("/dashboard/admin");
+          return;
+        }
+      } catch {
+        router.replace("/login");
+        return;
+      }
+
+      // ✅ Auto logout exactly at expiry time
+      const expMs = getTokenExpiryMs(token);
+      if (expMs) {
+        const msLeft = expMs - Date.now();
+        timer = window.setTimeout(() => logout(router), Math.max(msLeft, 0));
+      }
+    };
+
+    runAuthGuard();
+
+    // ✅ Sync logout across tabs/components
+    const onAuthChanged = () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) router.replace("/login");
+    };
+    window.addEventListener("userAuthChanged", onAuthChanged);
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("userAuthChanged", onAuthChanged);
+    };
+  }, [router]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar - Fixed positioning on mobile, static on desktop */}
@@ -17,9 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Header />
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

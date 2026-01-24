@@ -148,7 +148,7 @@ export default function AdminHeader({
                       localStorage.removeItem("authToken");
                       localStorage.removeItem("user");
                       apiCache.clear();
-                      router.push("/auth/login");
+                      router.push("/login");
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
                   >
