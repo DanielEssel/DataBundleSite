@@ -57,6 +57,12 @@ export default function AdminSidebar() {
       icon: <Users className="w-5 h-5" />,
       badge: null,
     },
+     {
+    title: "Payments",
+    href: "/dashboard/admin/payments",
+    icon: <CreditCard className="w-5 h-5" />,
+    badge: null,
+  },
     {
       title: "Bundles",
       href: "/dashboard/admin/bundles",
