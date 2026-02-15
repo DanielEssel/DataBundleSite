@@ -94,6 +94,14 @@ export default function UserSidebar() {
               <History className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">Orders</span>
             </Link>
+            <Link
+              href="/dashboard/user/AFA_Registration"
+              className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium">AFA Registration</span>
+            </Link>
 
             <Link
               href="/dashboard/user/profile"

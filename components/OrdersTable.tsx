@@ -178,7 +178,7 @@ export default function OrdersTable({
                   <div className="text-right">
                     <p className="text-xs font-medium text-gray-500 mb-0.5">Date</p>
                     <p className="text-xs text-gray-700 font-medium">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {order.createdAt ? new Date(order.createdAt).toLocaleString() : "—"}
                     </p>
                   </div>
                 </div>
@@ -320,7 +320,7 @@ export default function OrdersTable({
                     </td>
 
                     <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                     {order.createdAt ? new Date(order.createdAt).toLocaleString() : "—"}
                     </td>
                   </tr>
                 );
