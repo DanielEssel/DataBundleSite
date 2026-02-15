@@ -13,6 +13,30 @@ import { authFetch } from "@/lib/authFetch";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+type Toast = { message: string; type: "success" | "error" } | null;
+
+type RecentActivityItem = {
+  user: string;
+  text: string;
+  deliveryStatus: string;
+  timestamp?: string;
+};
+
+const normalize = (v: any) => String(v ?? "").toLowerCase().trim();
+
+const deliveryBadgeClass = (deliveryStatus: string) => {
+  const s = normalize(deliveryStatus);
+
+  if (s === "delivered" || s === "success") return "bg-green-100 text-green-700";
+  if (s === "failed") return "bg-red-100 text-red-700";
+  if (s === "processing") return "bg-blue-100 text-blue-700";
+  if (s === "cancelled") return "bg-gray-100 text-gray-700";
+  if (s === "refunded" || s === "resolved") return "bg-orange-100 text-orange-700";
+
+  // pending / unknown
+  return "bg-yellow-100 text-yellow-700";
+};
+
 export default function AdminDashboard() {
   const router = useRouter();
 
@@ -29,7 +53,7 @@ export default function AdminDashboard() {
     pendingOrders: 0,
   });
 
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
 
   const [showCreateBundle, setShowCreateBundle] = useState(false);
   const [newBundle, setNewBundle] = useState({
@@ -40,10 +64,7 @@ export default function AdminDashboard() {
     telcoCode: "MTN" as string,
   });
 
-  const [toastMessage, setToastMessage] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
+  const [toastMessage, setToastMessage] = useState<Toast>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToastMessage({ message, type });
@@ -63,13 +84,11 @@ export default function AdminDashboard() {
         return;
       }
 
-      // ✅ logout immediately if expired
       if (isTokenExpired(token)) {
         logout(router);
         return;
       }
 
-      // ✅ schedule logout exactly at expiry time
       const expMs = getTokenExpiryMs(token);
       if (expMs) {
         const msLeft = expMs - Date.now();
@@ -83,14 +102,13 @@ export default function AdminDashboard() {
           return;
         }
         setAuthorized(true);
-      } catch (error) {
+      } catch {
         router.replace("/login");
       }
     };
 
     checkAuth();
 
-    // ✅ cleanup timer
     return () => {
       if (timer) window.clearTimeout(timer);
     };
@@ -98,12 +116,14 @@ export default function AdminDashboard() {
 
   // ✅ Fetch dashboard stats only after authorized
   useEffect(() => {
-    if (authorized) fetchDashboardStats();
+    if (!authorized) return;
+    fetchDashboardStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authorized]);
 
   const fetchDashboardStats = async () => {
     setLoading(true);
+
     try {
       // ✅ Users
       const usersRes = await authFetch(router, `${API_URL}/api/auth/users?limit=50`);
@@ -136,14 +156,17 @@ export default function AdminDashboard() {
         setStats((prev) => ({ ...prev, totalBundles }));
       }
 
-      // ✅ Orders
-      const ordersRes = await authFetch(router, `${API_URL}/api/auth/orders?limit=5`);
+      // ✅ Orders (Admin endpoint)
+      const ordersRes = await authFetch(router, `${API_URL}/api/auth/orders?limit=50`);
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         const pagination = ordersData?.pagination || {};
         const allOrders = ordersData?.data || [];
 
         const totalOrders = pagination.total || allOrders.length || 0;
+
+        // Pending orders: you can choose order.status OR deliveryStatus.
+        // Here we count by order.status === "pending"
         const pendingCount = allOrders.filter((o: any) => o.status === "pending").length;
 
         setStats((prev) => ({
@@ -152,18 +175,13 @@ export default function AdminDashboard() {
           pendingOrders: pendingCount,
         }));
 
-        // ✅ Recent activity (from orders)
-        const activity = allOrders.slice(0, 5).map((order: any) => ({
+        // ✅ Recent Activity uses deliveryStatus (REAL)
+        const activity: RecentActivityItem[] = allOrders.slice(0, 5).map((order: any) => ({
           user:
             `${order.user?.firstName ?? ""} ${order.user?.lastName ?? ""}`.trim() ||
             "Unknown",
           text: `${order.bundle?.name ?? "Order"} - ${order.orderNumber}`,
-          status:
-            order.status === "success"
-              ? "success"
-              : order.status === "pending"
-              ? "pending"
-              : "failed",
+          deliveryStatus: order.deliveryStatus || "pending",
           timestamp: order.createdAt,
         }));
 
@@ -195,8 +213,6 @@ export default function AdminDashboard() {
       setShowCreateBundle(false);
       setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN" });
       showToast("Bundle created successfully");
-
-      // Optional: refresh bundles/orders stats after creating bundle
       fetchDashboardStats();
     } catch (err) {
       console.error(err);
@@ -306,7 +322,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
+        {/* Recent Activity (DELIVERY STATUS ✅) */}
         <div className="bg-white rounded-xl border border-gray-200">
           <div className="p-6 border-b">
             <h3 className="text-lg font-semibold">Recent Activity</h3>
@@ -317,32 +333,32 @@ export default function AdminDashboard() {
             {recentActivity.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No recent activity</p>
             ) : (
-              recentActivity.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center">
-                  <div>
-                    <p>
-                      <span className="font-medium">{item.user}</span> {item.text}
-                    </p>
-                    {item.timestamp && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(item.timestamp).toLocaleString()}
+              recentActivity.map((item, idx) => {
+                const s = normalize(item.deliveryStatus);
+                return (
+                  <div key={idx} className="flex justify-between items-center">
+                    <div>
+                      <p>
+                        <span className="font-medium">{item.user}</span> {item.text}
                       </p>
-                    )}
-                  </div>
+                      {item.timestamp && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
 
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
-                      item.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : item.status === "failed"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-              ))
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${deliveryBadgeClass(
+                        item.deliveryStatus
+                      )}`}
+                      title={`deliveryStatus: ${s}`}
+                    >
+                      {item.deliveryStatus}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
