@@ -95,7 +95,7 @@ export default function UserSidebar() {
               <span className="font-medium">Orders</span>
             </Link>
             <Link
-              href="/dashboard/user/AFA_Registration"
+              href="/dashboard/user/Afa"
               className="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
               onClick={() => setOpen(false)}
             >

@@ -19,7 +19,8 @@ interface Bundle {
   _id: string;
   name: string;
   price: number;
-  telcoCode: string;
+  telcoCode: string; // e.g. "AirtelTigo", "MTN", "Telecel"
+  category?: "regular" | "bigdata"; // ✅ used to split AT into Ishare vs BigData
   validity?: string;
   dataAmount?: string;
 }
@@ -48,6 +49,12 @@ interface NetworkConfig {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const WHATSAPP_SUPPORT_NUMBER = "233555168047";
 const WHATSAPP_CHANNEL_LINK = "https://chat.whatsapp.com/FWGf9yOAMFlG9102qPIha3";
+
+// UI keys for top tabs
+const TAB_KEYS = {
+  AT_ISHARE: "AIRTELTIGO_ISHARE",
+  AT_BIGDATA: "AIRTELTIGO_BIGDATA",
+} as const;
 
 const NETWORK_CONFIG: Record<string, NetworkConfig> = {
   MTN: {
@@ -83,11 +90,33 @@ const NETWORK_CONFIG: Record<string, NetworkConfig> = {
 };
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILS
 // ============================================================================
 
-const getNetworkConfig = (telcoCode: string): NetworkConfig => {
-  return NETWORK_CONFIG[telcoCode?.toUpperCase()] || NETWORK_CONFIG.OTHER;
+// ✅ Split AirtelTigo tabs by category
+const getTabKeyForBundle = (b: Bundle) => {
+  const telco = (b.telcoCode || "").toUpperCase();
+
+  if (telco === "AIRTELTIGO") {
+    if ((b.category || "regular") === "bigdata") return TAB_KEYS.AT_BIGDATA;
+    return TAB_KEYS.AT_ISHARE; // regular = Ishare
+  }
+
+  return telco || "OTHER";
+};
+
+const getTabLabel = (tabKey: string) => {
+  if (tabKey === TAB_KEYS.AT_ISHARE) return "ISHARE";
+  if (tabKey === TAB_KEYS.AT_BIGDATA) return "BIGDATA";
+  return tabKey;
+};
+
+const getTabConfig = (tabKey: string): NetworkConfig => {
+  // both Ishare + BigData use AirtelTigo branding
+  if (tabKey === TAB_KEYS.AT_ISHARE || tabKey === TAB_KEYS.AT_BIGDATA) {
+    return NETWORK_CONFIG.AIRTELTIGO;
+  }
+  return NETWORK_CONFIG[tabKey] || NETWORK_CONFIG.OTHER;
 };
 
 const getUserDisplayName = (user: UserProfile): string => {
@@ -95,15 +124,15 @@ const getUserDisplayName = (user: UserProfile): string => {
 };
 
 // ============================================================================
-// SUB COMPONENTS
+// UI COMPONENTS
 // ============================================================================
 
 const NetworkFilterButton: React.FC<{
-  network: string;
+  tabKey: string;
   isActive: boolean;
   onClick: () => void;
-}> = ({ network, isActive, onClick }) => {
-  const config = getNetworkConfig(network);
+}> = ({ tabKey, isActive, onClick }) => {
+  const config = getTabConfig(tabKey);
 
   return (
     <button
@@ -118,7 +147,7 @@ const NetworkFilterButton: React.FC<{
       <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">
         {config.logo}
       </span>
-      <span className="sm:inline">{network}</span>
+      <span className="sm:inline">{getTabLabel(tabKey)}</span>
     </button>
   );
 };
@@ -127,7 +156,8 @@ const BundleCard: React.FC<{
   bundle: Bundle;
   onBuyClick: (bundle: Bundle) => void;
 }> = ({ bundle, onBuyClick }) => {
-  const config = getNetworkConfig(bundle.telcoCode);
+  const baseTelco = (bundle.telcoCode || "").toUpperCase();
+  const config = NETWORK_CONFIG[baseTelco] || NETWORK_CONFIG.OTHER;
 
   return (
     <div
@@ -143,7 +173,11 @@ const BundleCard: React.FC<{
 
       <div className="text-center mb-2">
         <p className="text-sm md:text-lg font-bold text-gray-900 line-clamp-2">{bundle.name}</p>
-        <p className="text-xs font-medium text-gray-600">{bundle.telcoCode}</p>
+        <p className="text-xs font-medium text-gray-600">
+          {bundle.telcoCode}
+          {baseTelco === "AIRTELTIGO" && bundle.category === "bigdata" ? " • BigData" : ""}
+          {baseTelco === "AIRTELTIGO" && (bundle.category || "regular") === "regular" ? " • Ishare" : ""}
+        </p>
       </div>
 
       <div className="flex justify-between items-center gap-2">
@@ -225,7 +259,7 @@ const WhatsAppButton: React.FC = () => {
 };
 
 // ============================================================================
-// MAIN DASHBOARD COMPONENT
+// MAIN
 // ============================================================================
 
 export default function Dashboard() {
@@ -234,7 +268,10 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("MTN");
+
+  // ✅ default to AirtelTigo Ishare tab (or change to MTN if you want)
+  const [selectedTab, setSelectedTab] = useState<string>(TAB_KEYS.AT_ISHARE);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -269,13 +306,13 @@ export default function Dashboard() {
       }
 
       try {
-        const userData = JSON.parse(user);
-        if (userData?.role === "admin") {
+        const parsed = JSON.parse(user);
+        if (parsed?.role === "admin") {
           router.replace("/dashboard/admin");
           return;
         }
         setAuthorized(true);
-      } catch (err) {
+      } catch {
         router.replace("/login");
       }
     };
@@ -317,7 +354,8 @@ export default function Dashboard() {
           ),
           apiCache.getOrFetch(
             "orders-list",
-            () => authFetch(router, `${API_BASE}/api/orders?page=1&limit=10`).then((r) => r.json()),
+            () =>
+              authFetch(router, `${API_BASE}/api/orders?page=1&limit=10`).then((r) => r.json()),
             CACHE_TTL.MEDIUM
           ),
         ]);
@@ -336,15 +374,55 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [authorized, router]);
 
-  // Group bundles by network
-  const bundlesByNetwork = useMemo(() => {
-    return bundles.reduce((acc: Record<string, Bundle[]>, bundle) => {
-      const key = bundle.telcoCode?.toUpperCase() || "OTHER";
+  // ✅ Group bundles into tabs (Ishare vs BigData vs MTN vs Telecel...)
+  const bundlesByTab = useMemo(() => {
+    return bundles.reduce((acc: Record<string, Bundle[]>, b) => {
+      const key = getTabKeyForBundle(b);
       if (!acc[key]) acc[key] = [];
-      acc[key].push(bundle);
+      acc[key].push(b);
       return acc;
     }, {});
   }, [bundles]);
+
+  // ✅ Force tab order to match your header (BigData at top)
+  const tabOrder = useMemo(() => {
+    const keys = Object.keys(bundlesByTab);
+
+    const ordered = [
+      TAB_KEYS.AT_ISHARE, // AirtelTigo regular
+      ...(bundlesByTab[TAB_KEYS.AT_BIGDATA]?.length ? [TAB_KEYS.AT_BIGDATA] : []),
+      "MTN",
+      "TELECEL",
+      "VODAFONE",
+      ...keys.filter(
+        (k) =>
+          ![
+            TAB_KEYS.AT_ISHARE,
+            TAB_KEYS.AT_BIGDATA,
+            "MTN",
+            "TELECEL",
+            "VODAFONE",
+          ].includes(k)
+      ),
+    ];
+
+    return Array.from(new Set(ordered)).filter((k) => bundlesByTab[k]?.length);
+  }, [bundlesByTab]);
+
+  // ✅ Ensure selected tab exists
+  useEffect(() => {
+    if (!tabOrder.length) return;
+
+    if (!bundlesByTab[selectedTab]?.length) {
+      // prefer Ishare then BigData then first available
+      const fallback =
+        (bundlesByTab[TAB_KEYS.AT_ISHARE]?.length && TAB_KEYS.AT_ISHARE) ||
+        (bundlesByTab[TAB_KEYS.AT_BIGDATA]?.length && TAB_KEYS.AT_BIGDATA) ||
+        tabOrder[0];
+
+      setSelectedTab(fallback);
+    }
+  }, [tabOrder, bundlesByTab, selectedTab]);
 
   // Handlers
   const handleBuyClick = useCallback((bundle: Bundle) => {
@@ -356,18 +434,6 @@ export default function Dashboard() {
     setIsOrderModalOpen(false);
     setSelectedBundle(null);
   }, []);
-
-  const handleOrderSuccess = useCallback(() => {
-    setIsOrderModalOpen(false);
-    setSelectedBundle(null);
-
-    authFetch(router, `${API_BASE}/api/orders`)
-      .then((res) => res.json())
-      .then((data) => {
-        setOrders(data?.data?.orders || []);
-      })
-      .catch((err) => console.error("Failed to refresh orders:", err));
-  }, [router]);
 
   // Delivery Notice Modal
   const DeliveryNoticeModal: React.FC = () => (
@@ -396,40 +462,6 @@ export default function Dashboard() {
               <span className="font-bold text-blue-600">10 to 20 minutes</span> of successful
               payment confirmation.
             </p>
-          </div>
-
-          <div className="space-y-3 border-t border-gray-200 pt-4">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Quick Processing</p>
-                <p className="text-xs text-gray-600">10-20 minutes delivery guarantee</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">24/7 Support</p>
-                <p className="text-xs text-gray-600">Contact us anytime if you need help</p>
-              </div>
-            </div>
           </div>
 
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
@@ -505,75 +537,23 @@ export default function Dashboard() {
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">Available Bundles</h2>
 
             <div className="flex flex-wrap gap-2">
-              {Object.keys(bundlesByNetwork).map((network) => (
+              {tabOrder.map((tabKey) => (
                 <NetworkFilterButton
-                  key={network}
-                  network={network}
-                  isActive={selectedNetwork === network}
-                  onClick={() => setSelectedNetwork(network)}
+                  key={tabKey}
+                  tabKey={tabKey}
+                  isActive={selectedTab === tabKey}
+                  onClick={() => setSelectedTab(tabKey)}
                 />
               ))}
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {bundlesByNetwork[selectedNetwork]?.map((bundle) => (
+            {bundlesByTab[selectedTab]?.map((bundle) => (
               <BundleCard key={bundle._id} bundle={bundle} onBuyClick={handleBuyClick} />
             ))}
           </div>
         </div>
-
-        {/* MTN notice */}
-        {selectedNetwork === "MTN" && (
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-5 mb-8 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-start gap-4">
-              <div className="flex-shrink-0 pt-0.5">
-                <svg
-                  className="h-6 w-6 text-red-600"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-
-              <div className="flex-1">
-                <p className="text-sm font-bold text-red-900 mb-2">
-                  ⚠️ Important: Unsupported SIM Types
-                </p>
-                <p className="text-sm text-red-800 mb-4">
-                  Our DATA REQUEST doesn't support these SIM types. Any data transferred will be{" "}
-                  <span className="font-semibold">burned and cannot be reversed</span>. You will be
-                  charged for the loss.
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-x-4 gap-y-2">
-                  {[
-                    "Turbonet SIM",
-                    "Merchant SIM",
-                    "EVD SIM",
-                    "Broadband SIM",
-                    "Blacklisted SIM",
-                    "Roaming SIM",
-                    "Different Network",
-                    "Wrong Number",
-                    "Inactive Number",
-                  ].map((sim) => (
-                    <div key={sim} className="flex items-center text-sm text-red-700">
-                      <span className="mr-2 text-red-500">•</span>
-                      <span>{sim}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Recent purchase history */}
         <div className="mb-6">
@@ -609,8 +589,6 @@ export default function Dashboard() {
           price={selectedBundle.price}
           isOpen={isOrderModalOpen}
           onClose={handleModalClose}
-          // If your OrderModal supports it, uncomment:
-          // onSuccess={handleOrderSuccess}
         />
       )}
 
