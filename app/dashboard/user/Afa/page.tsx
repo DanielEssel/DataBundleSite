@@ -6,7 +6,7 @@ import { Clock, Package, ShieldCheck, Star, Phone, CheckCircle2 } from "lucide-r
 import { FaWhatsapp } from "react-icons/fa";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-const FEE_GHS = 11.0;
+const FEE_GHS = 16.0;
 
 const REGIONS = [
   "Greater Accra",

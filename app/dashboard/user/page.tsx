@@ -107,7 +107,7 @@ const getTabKeyForBundle = (b: Bundle) => {
 
 const getTabLabel = (tabKey: string) => {
   if (tabKey === TAB_KEYS.AT_ISHARE) return "ISHARE";
-  if (tabKey === TAB_KEYS.AT_BIGDATA) return "BIGDATA";
+  if (tabKey === TAB_KEYS.AT_BIGDATA) return "BIGTIME DATA";
   return tabKey;
 };
 
