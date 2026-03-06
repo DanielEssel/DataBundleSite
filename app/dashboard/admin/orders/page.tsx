@@ -124,6 +124,41 @@ export default function AdminOrdersPage() {
   const [error, setError] = useState("");
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  // Edit modal state
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [editDeliveryStatus, setEditDeliveryStatus] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // Update order status/deliveryStatus
+  const handleEditOrder = async () => {
+    if (!editOrder) return;
+    setEditLoading(true);
+    setEditError("");
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_URL}/api/orders/${editOrder._id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({
+          status: editStatus,
+          deliveryStatus: editDeliveryStatus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Failed to update order");
+      setEditOrder(null);
+      fetchOrders(currentPage);
+    } catch (err: any) {
+      setEditError(err?.message || "Error updating order");
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   // Client-side filter (API returns page results)
   const filtered = orders.filter((o) => {
@@ -459,7 +494,14 @@ export default function AdminOrdersPage() {
                         <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View">
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Edit">
+                        <button
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Edit"
+                          onClick={() => {
+                            setEditOrder(o);
+                            setEditStatus(o.status ?? "");
+                            setEditDeliveryStatus(o.deliveryStatus ?? "");
+                          }}
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Delete">
@@ -498,6 +540,98 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       </div>
+      {/* Edit Modal */}
+      {editOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 animate-fadeIn">
+
+            {/* Close Button */}
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition"
+              onClick={() => setEditOrder(null)}
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+
+            {/* Title */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Edit Order</h2>
+              <p className="text-sm text-gray-500">
+                Update the order and delivery status
+              </p>
+            </div>
+
+            {/* Order Status */}
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Order Status
+              </label>
+
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={editLoading}
+              >
+                <option value="success">Success</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            {/* Delivery Status */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Delivery Status
+              </label>
+
+              <select
+                value={editDeliveryStatus}
+                onChange={(e) => setEditDeliveryStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={editLoading}
+              >
+                <option value="delivered">Delivered</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="refunded">Refunded</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
+
+            {/* Error */}
+            {editError && (
+              <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                {editError}
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setEditOrder(null)}
+                disabled={editLoading}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleEditOrder}
+                disabled={editLoading}
+                className="px-5 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {editLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
