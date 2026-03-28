@@ -61,6 +61,7 @@ export default function BundlesPage() {
     price: 0,
     dataAmount: "",
     telcoCode: "MTN" as string,
+    category: "regular" as "regular" | "bigdata",
   });
 
   // Toast notification helper
@@ -281,10 +282,10 @@ export default function BundlesPage() {
       }
 
       setShowCreateModal(false);
-      setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN" });
+      setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN", category: "regular" });
       fetchBundles(1);
       showToast("Bundle created successfully");
-    } catch (err) {
+    } catch (err) { 
       console.error(err);
       showToast("Error creating bundle", "error");
     }

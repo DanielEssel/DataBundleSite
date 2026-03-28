@@ -560,6 +560,24 @@ export default function AdminOrdersPage() {
                 Update the order and delivery status
               </p>
             </div>
+            {/* Payment Status */}
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Payment Status
+              </label>
+
+              <select
+                value={editOrder.paymentStatus ?? ""}
+                onChange={(e) => setEditOrder({ ...editOrder, paymentStatus: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={editLoading}
+              >
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="failed">Failed</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
 
             {/* Order Status */}
             <div className="mb-5">

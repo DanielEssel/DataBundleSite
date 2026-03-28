@@ -9,6 +9,7 @@ export type NewBundle = {
   price: number;
   telcoCode: string;
   dataAmount: string;
+  category: "regular" | "bigdata";
 };
 
 interface CreateBundleModalProps {
@@ -40,6 +41,11 @@ export default function CreateBundleModal({
     bundle.price > 0;
 
   const TELCO_OPTIONS = ["MTN", "Vodafone", "AirtelTigo", "Telecel"];
+
+  const CATEGORY_OPTIONS = [
+    { value: "regular", label: "Regular" },
+    { value: "bigdata", label: "Big Data" },
+  ];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -87,6 +93,27 @@ export default function CreateBundleModal({
               }
               className="input"
             />
+          </div>
+
+          {/* Category Selection */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <label className="block text-xs font-semibold mb-1 text-gray-700">Category</label>
+              <select
+                value={bundle.category}
+                onChange={(e) =>
+                  onBundleChange({ ...bundle, category: e.target.value as "regular" | "bigdata" })
+                }
+                className="input"
+                required
+              >
+                {CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

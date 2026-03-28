@@ -62,6 +62,7 @@ export default function AdminDashboard() {
     price: 0,
     dataAmount: "",
     telcoCode: "MTN" as string,
+    category: "regular" as "regular" | "bigdata",
   });
 
   const [toastMessage, setToastMessage] = useState<Toast>(null);
@@ -211,7 +212,7 @@ export default function AdminDashboard() {
       }
 
       setShowCreateBundle(false);
-      setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN" });
+      setNewBundle({ name: "", description: "", price: 0, dataAmount: "", telcoCode: "MTN", category: "regular" });
       showToast("Bundle created successfully");
       fetchDashboardStats();
     } catch (err) {
