@@ -128,6 +128,7 @@ export default function AdminOrdersPage() {
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [editStatus, setEditStatus] = useState("");
   const [editDeliveryStatus, setEditDeliveryStatus] = useState("");
+  const [editPaymentStatus, setEditPaymentStatus] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -147,6 +148,7 @@ export default function AdminOrdersPage() {
         body: JSON.stringify({
           status: editStatus,
           deliveryStatus: editDeliveryStatus,
+          paymentStatus: editPaymentStatus,
         }),
       });
       const data = await res.json();
@@ -544,7 +546,6 @@ export default function AdminOrdersPage() {
       {editOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 animate-fadeIn">
-
             {/* Close Button */}
             <button
               className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition"
@@ -552,39 +553,18 @@ export default function AdminOrdersPage() {
             >
               <XCircle className="w-6 h-6" />
             </button>
-
             {/* Title */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Edit Order</h2>
               <p className="text-sm text-gray-500">
-                Update the order and delivery status
+                Update the order, delivery, and payment status
               </p>
             </div>
-            {/* Payment Status */}
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Payment Status
-              </label>
-
-              <select
-                value={editOrder.paymentStatus ?? ""}
-                onChange={(e) => setEditOrder({ ...editOrder, paymentStatus: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                disabled={editLoading}
-              >
-                <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
-              </select>
-            </div>
-
             {/* Order Status */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Order Status
               </label>
-
               <select
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value)}
@@ -598,13 +578,11 @@ export default function AdminOrdersPage() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-
             {/* Delivery Status */}
-            <div className="mb-6">
+            <div className="mb-5">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Delivery Status
               </label>
-
               <select
                 value={editDeliveryStatus}
                 onChange={(e) => setEditDeliveryStatus(e.target.value)}
@@ -620,14 +598,29 @@ export default function AdminOrdersPage() {
                 <option value="resolved">Resolved</option>
               </select>
             </div>
-
+            {/* Payment Status */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Payment Status
+              </label>
+              <select
+                value={editPaymentStatus}
+                onChange={(e) => setEditPaymentStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={editLoading}
+              >
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
             {/* Error */}
             {editError && (
               <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
                 {editError}
               </div>
             )}
-
             {/* Buttons */}
             <div className="flex justify-end gap-3">
               <button
@@ -637,7 +630,6 @@ export default function AdminOrdersPage() {
               >
                 Cancel
               </button>
-
               <button
                 onClick={handleEditOrder}
                 disabled={editLoading}
@@ -646,7 +638,6 @@ export default function AdminOrdersPage() {
                 {editLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
-
           </div>
         </div>
       )}
