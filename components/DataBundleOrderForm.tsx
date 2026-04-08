@@ -364,7 +364,7 @@ export default function DataBundleOrderForm() {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="e.g. +233557424675"
+                  placeholder="e.g. +233555168047"
                   value={recipientPhone}
                   onChange={(e) => setRecipientPhone(e.target.value)}
                   className="border-2 border-gray-200 focus:border-blue-500 py-6 text-base rounded-xl transition-all"

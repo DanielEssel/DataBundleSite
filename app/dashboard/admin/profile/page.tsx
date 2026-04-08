@@ -644,7 +644,7 @@ export default function AdminProfilePage() {
               </div>
             </div>
             <a
-              href="https://wa.me/233557424675"
+              href="https://wa.me/233555168047"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl shadow-md transition-all font-medium"

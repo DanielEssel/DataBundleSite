@@ -303,7 +303,7 @@ export default function BundlesPage() {
       setBundles(prev => prev.map(b => (b._id || b.id) === bundleId ? currentEditBundle : b));
 
       const res = await fetch(`${API_URL}/api/bundles/${bundleId}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",

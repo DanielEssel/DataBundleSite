@@ -23,6 +23,7 @@ interface Bundle {
   category?: "regular" | "bigdata"; // ✅ used to split AT into Ishare vs BigData
   validity?: string;
   dataAmount?: string;
+  isActive?: boolean;
 }
 
 interface UserProfile {
@@ -158,12 +159,22 @@ const BundleCard: React.FC<{
 }> = ({ bundle, onBuyClick }) => {
   const baseTelco = (bundle.telcoCode || "").toUpperCase();
   const config = NETWORK_CONFIG[baseTelco] || NETWORK_CONFIG.OTHER;
+  const isActive = bundle.isActive !== false; // treat undefined as active
 
   return (
     <div
-      className="relative border-2 border-gray-200 rounded-xl p-3 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col justify-between"
+      className={`relative border-2 rounded-xl p-4 bg-white flex flex-col justify-between transition-all duration-200 group ${isActive ? "hover:shadow-lg hover:border-gray-300" : "opacity-70"}`}
       style={{ borderTop: `4px solid ${config.color}` }}
+      tabIndex={0}
+      aria-disabled={!isActive}
     >
+      {/* Unavailable overlay */}
+      {!isActive && (
+        <div className="absolute inset-0 bg-gray-100 bg-opacity-80 flex flex-col items-center justify-center z-10 rounded-xl">
+          <span className="text-xs font-semibold text-gray-500 mb-1">Unavailable</span>
+          <span className="text-[10px] text-gray-400">Not for sale</span>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-2">
         <div className={`${config.lightBg} p-1.5 rounded-md flex items-center justify-center`}>
           {config.logo}
@@ -180,17 +191,29 @@ const BundleCard: React.FC<{
         </p>
       </div>
 
-      <div className="flex justify-between items-center gap-2">
+      <div className="flex justify-between items-center gap-2 mt-2">
         <span className="text-xs md:text-sm font-semibold text-gray-900">
           ₵{bundle.price?.toFixed(2) || "0.00"}
         </span>
-        <button
-          onClick={() => onBuyClick(bundle)}
-          className="hover:opacity-90 text-white px-2 md:px-3 py-1 rounded-md text-xs font-medium transition-all"
-          style={{ backgroundColor: config.color }}
-        >
-          Buy
-        </button>
+        {isActive ? (
+          <button
+            onClick={() => onBuyClick(bundle)}
+            className="bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-400"
+            style={{ backgroundColor: config.color }}
+            aria-label={`Buy ${bundle.name}`}
+          >
+            Buy
+          </button>
+        ) : (
+          <button
+            disabled
+            className="bg-gray-300 text-gray-500 px-3 py-1.5 rounded-md text-xs font-semibold cursor-not-allowed opacity-80 border border-gray-200"
+            title="This bundle is currently unavailable"
+            aria-label={`Unavailable: ${bundle.name}`}
+          >
+            Unavailable
+          </button>
+        )}
       </div>
     </div>
   );

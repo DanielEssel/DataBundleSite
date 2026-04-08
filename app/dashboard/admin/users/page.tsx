@@ -49,8 +49,45 @@ export default function UsersManagementPage() {
   const [error, setError] = useState("");
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{ userId: string; name: string } | null>(null);
+  
 
   const USERS_PER_PAGE = 20; // default from API
+
+
+
+  // Delete user handler
+  // Show dialog, then delete on confirm
+  const handleDeleteUser = (userId: string, name: string) => {
+    setConfirmDialog({ userId, name });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!confirmDialog) return;
+    const userId = confirmDialog.userId;
+    setConfirmDialog(null);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_URL}/api/auth/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        setToast({ message: payload?.message || "Failed to delete user", type: "error" });
+        return;
+      }
+      setUsers(prev => prev.filter(u => u._id !== userId));
+      setToast({ message: "User deleted successfully", type: "success" });
+    } catch (err) {
+      setToast({ message: "Error deleting user", type: "error" });
+    }
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Filtering (client-side) - kept simple while pagination is server-driven
   const filteredUsers = users.filter((u) => {
@@ -303,7 +340,49 @@ export default function UsersManagementPage() {
                       <div className="flex gap-2">
                         <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Eye className="w-4 h-4" /></button>
                         <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg"><Edit className="w-4 h-4" /></button>
-                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                        <button
+                          onClick={() => handleDeleteUser(u._id, `${u.firstName} ${u.lastName}`)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-red-400"
+                          title="Delete user"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                            {/* Confirmation Dialog (global, not per row) */}
+                            {confirmDialog && (
+                              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50 animate-fade-in">
+                                <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
+                                  <h3 className="text-xl font-bold mb-2 text-gray-900">Delete User</h3>
+                                  <p className="text-gray-600 mb-6 text-sm">
+                                    Are you sure you want to delete <span className="font-semibold">{confirmDialog.name}</span>? This action cannot be undone.
+                                  </p>
+                                  <div className="flex justify-end gap-3 mt-6">
+                                    <button
+                                      onClick={() => setConfirmDialog(null)}
+                                      className="px-5 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors font-medium shadow-sm"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={confirmDeleteUser}
+                                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-md"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Toast Notification (global, not per row) */}
+                            {toast && (
+                              <div className={`fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-lg animate-in fade-in slide-in-from-bottom-4 ${
+                                toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+                              }`}>
+                                <p className="flex items-center gap-2">
+                                  {toast.type === 'success' ? '✓' : '✕'} {toast.message}
+                                </p>
+                              </div>
+                            )}
                       </div>
                     </td>
                   </tr>
