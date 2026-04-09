@@ -66,10 +66,11 @@ export default function EditBundleModal({
                 <input
                   type="number"
                   required
+                  step= "0.01"
                   min={0}
                   placeholder="e.g. 20"
                   value={bundle.price}
-                  onChange={e => onBundleChange({ ...bundle, price: +e.target.value })}
+                  onChange={e => onBundleChange({ ...bundle, price: Number(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
