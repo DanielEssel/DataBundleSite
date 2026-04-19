@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,14 @@ import {
   Loader2,
 } from "lucide-react";
 
-export default function ResetPasswordPage({
-  params,
-}: {
-  params: { token: string };
-}) {
+export default function ResetPasswordPage() {
   const router = useRouter();
+  const params = useParams();
+
+  // ✅ FIX: Correct token extraction
+  const token = Array.isArray(params?.token)
+    ? params.token[0]
+    : params?.token;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,6 +30,7 @@ export default function ResetPasswordPage({
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
 
+  // Password strength helper
   const getPasswordStrength = (password: string) => {
     if (password.length < 6) return { label: "Weak", color: "bg-red-500" };
     if (password.length < 10) return { label: "Medium", color: "bg-yellow-500" };
@@ -38,6 +41,15 @@ export default function ResetPasswordPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 🔍 Debug
+    console.log("TOKEN:", token);
+
+    if (!token) {
+      setMessage("Invalid or missing reset token.");
+      setMessageType("error");
+      return;
+    }
 
     if (!password || !confirmPassword) {
       setMessage("Please fill in all fields.");
@@ -65,14 +77,25 @@ export default function ResetPasswordPage({
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/reset-password`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: params.token, password }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          // ✅ FIX: Use newPassword to match backend
+          body: JSON.stringify({
+            token,
+            newPassword: password,
+          }),
         }
       );
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.message || "Reset failed");
+      console.log("STATUS:", res.status);
+      console.log("RESPONSE:", data);
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Reset failed");
+      }
 
       setMessage("Password reset successful! Redirecting to login...");
       setMessageType("success");
@@ -137,7 +160,14 @@ export default function ResetPasswordPage({
                 <div className="h-2 w-full bg-gray-200 rounded">
                   <div
                     className={`h-2 rounded ${strength.color}`}
-                    style={{ width: password.length > 10 ? "100%" : "60%" }}
+                    style={{
+                      width:
+                        password.length < 6
+                          ? "30%"
+                          : password.length < 10
+                          ? "60%"
+                          : "100%",
+                    }}
                   />
                 </div>
                 <p className="text-xs mt-1 text-gray-500">
@@ -184,12 +214,11 @@ export default function ResetPasswordPage({
             ) : (
               <AlertCircle className="w-5 h-5" />
             )}
-
             <span>{message}</span>
           </div>
         )}
 
-        {/* Back to login */}
+        {/* Back */}
         <div className="mt-6 text-center">
           <button
             type="button"
