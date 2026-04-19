@@ -223,7 +223,7 @@ export default function ResetPasswordPage() {
           <button
             type="button"
             className="text-blue-600 hover:underline text-sm"
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push("/login")}
           >
             Back to Login
           </button>
