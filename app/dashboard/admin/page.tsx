@@ -6,10 +6,11 @@ import AdminHeader from "./components/AdminHeader";
 import AdminCard from "./components/AdminCard";
 import CreateBundleModal from "./components/CreateBundleModal";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Users, Package, CreditCard, Clock } from "lucide-react";
+import { ShoppingBag, Users, Package, CreditCard, Clock, MessageSquare } from "lucide-react";
 
 import { getTokenExpiryMs, isTokenExpired, logout } from "@/lib/jwtAuth";
 import { authFetch } from "@/lib/authFetch";
+import SendSmsModal from "./components/SendSmsModal";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -66,6 +67,9 @@ export default function AdminDashboard() {
   });
 
   const [toastMessage, setToastMessage] = useState<Toast>(null);
+  const [showSmsModal, setShowSmsModal] = useState(false);
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [smsResults, setSmsResults] = useState<any>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToastMessage({ message, type });
@@ -221,6 +225,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSendSms = async (message: string) => {
+    setSmsLoading(true);
+    try {
+      const res = await authFetch(router, `${API_URL}/api/admin/send-sms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!res.ok) {
+        showToast("Failed to send SMS", "error");
+        return;
+      }
+
+      const data = await res.json();
+      setSmsResults(data.results);
+      showToast("SMS sent to users", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Error sending SMS", "error");
+    } finally {
+      setSmsLoading(false);
+    }
+  };
+
   const navigateTo = (path: string) => router.push(path);
 
   if (!authorized) {
@@ -320,6 +349,24 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </button>
+
+            <button
+              onClick={() => {
+                setSmsResults(null);
+                setShowSmsModal(true);
+              }}
+              className="p-4 border rounded-lg hover:bg-orange-50 transition text-left"
+            >
+              <div className="flex gap-3 items-center">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <MessageSquare className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Send SMS</p>
+                  <p className="text-sm text-gray-500">Message all users</p>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -372,6 +419,15 @@ export default function AdminDashboard() {
         onSubmit={handleAddBundle}
         bundle={newBundle}
         onBundleChange={setNewBundle}
+      />
+
+      {/* Send SMS Modal */}
+      <SendSmsModal
+        isOpen={showSmsModal}
+        onClose={() => setShowSmsModal(false)}
+        onSubmit={handleSendSms}
+        loading={smsLoading}
+        results={smsResults}
       />
 
       {/* Toast Notification */}
