@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Clock } from "lucide-react";
+import { Package, Clock, ShoppingBag, ChevronRight, Wifi, AlertCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 
 import OrderModal from "@/components/OrderModal";
@@ -19,8 +19,8 @@ interface Bundle {
   _id: string;
   name: string;
   price: number;
-  telcoCode: string; // e.g. "AirtelTigo", "MTN", "Telecel"
-  category?: "regular" | "bigdata"; // ✅ used to split AT into Ishare vs BigData
+  telcoCode: string;
+  category?: "regular" | "bigdata";
   validity?: string;
   dataAmount?: string;
   isActive?: boolean;
@@ -40,6 +40,7 @@ interface NetworkConfig {
   color: string;
   bgColor: string;
   lightBg: string;
+  ringColor: string;
   logo: React.ReactElement;
 }
 
@@ -51,7 +52,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const WHATSAPP_SUPPORT_NUMBER = "233555168047";
 const WHATSAPP_CHANNEL_LINK = "https://chat.whatsapp.com/FWGf9yOAMFlG9102qPIha3";
 
-// UI keys for top tabs
 const TAB_KEYS = {
   AT_ISHARE: "AIRTELTIGO_ISHARE",
   AT_BIGDATA: "AIRTELTIGO_BIGDATA",
@@ -62,31 +62,36 @@ const NETWORK_CONFIG: Record<string, NetworkConfig> = {
     color: "#FFD700",
     bgColor: "bg-yellow-400",
     lightBg: "bg-yellow-50",
-    logo: <img src="/logos/mtn.png" alt="MTN" className="w-6 h-6" />,
+    ringColor: "ring-yellow-300",
+    logo: <img src="/logos/mtn.png" alt="MTN" className="w-5 h-5 object-contain" />,
   },
   VODAFONE: {
     color: "#E60000",
     bgColor: "bg-red-500",
     lightBg: "bg-red-50",
-    logo: <img src="/logos/vodafone.png" alt="Vodafone" className="w-6 h-6" />,
+    ringColor: "ring-red-300",
+    logo: <img src="/logos/vodafone.png" alt="Vodafone" className="w-5 h-5 object-contain" />,
   },
   AIRTELTIGO: {
     color: "#0066CC",
     bgColor: "bg-blue-600",
     lightBg: "bg-blue-50",
-    logo: <img src="/logos/at.png" alt="AirtelTigo" className="w-6 h-6" />,
+    ringColor: "ring-blue-300",
+    logo: <img src="/logos/at.png" alt="AirtelTigo" className="w-5 h-5 object-contain" />,
   },
   TELECEL: {
     color: "#E60000",
     bgColor: "bg-red-500",
     lightBg: "bg-red-50",
-    logo: <img src="/logos/tel.png" alt="Telecel" className="w-6 h-6" />,
+    ringColor: "ring-red-300",
+    logo: <img src="/logos/tel.png" alt="Telecel" className="w-5 h-5 object-contain" />,
   },
   OTHER: {
     color: "#4B5563",
     bgColor: "bg-gray-500",
     lightBg: "bg-gray-50",
-    logo: <Package className="w-6 h-6 text-gray-600" />,
+    ringColor: "ring-gray-300",
+    logo: <Package className="w-5 h-5 text-gray-600" />,
   },
 };
 
@@ -94,233 +99,306 @@ const NETWORK_CONFIG: Record<string, NetworkConfig> = {
 // UTILS
 // ============================================================================
 
-// ✅ Split AirtelTigo tabs by category
 const getTabKeyForBundle = (b: Bundle) => {
   const telco = (b.telcoCode || "").toUpperCase();
-
   if (telco === "AIRTELTIGO") {
-    if ((b.category || "regular") === "bigdata") return TAB_KEYS.AT_BIGDATA;
-    return TAB_KEYS.AT_ISHARE; // regular = Ishare
+    return (b.category || "regular") === "bigdata" ? TAB_KEYS.AT_BIGDATA : TAB_KEYS.AT_ISHARE;
   }
-
   return telco || "OTHER";
 };
 
 const getTabLabel = (tabKey: string) => {
-  if (tabKey === TAB_KEYS.AT_ISHARE) return "ISHARE";
-  if (tabKey === TAB_KEYS.AT_BIGDATA) return "BIGTIME DATA";
-  return tabKey;
+  if (tabKey === TAB_KEYS.AT_ISHARE) return "Ishare";
+  if (tabKey === TAB_KEYS.AT_BIGDATA) return "BigTime";
+  return tabKey.charAt(0) + tabKey.slice(1).toLowerCase();
 };
 
 const getTabConfig = (tabKey: string): NetworkConfig => {
-  // both Ishare + BigData use AirtelTigo branding
-  if (tabKey === TAB_KEYS.AT_ISHARE || tabKey === TAB_KEYS.AT_BIGDATA) {
-    return NETWORK_CONFIG.AIRTELTIGO;
-  }
+  if (tabKey === TAB_KEYS.AT_ISHARE || tabKey === TAB_KEYS.AT_BIGDATA) return NETWORK_CONFIG.AIRTELTIGO;
   return NETWORK_CONFIG[tabKey] || NETWORK_CONFIG.OTHER;
 };
 
-const getUserDisplayName = (user: UserProfile): string => {
-  return user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User";
-};
+const getUserDisplayName = (user: UserProfile): string =>
+  user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User";
+
+const getInitials = (name: string) =>
+  name.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0].toUpperCase()).join("");
 
 // ============================================================================
-// UI COMPONENTS
+// SUB-COMPONENTS
 // ============================================================================
 
-const NetworkFilterButton: React.FC<{
+/** Network tab pill */
+const NetworkTab: React.FC<{
   tabKey: string;
   isActive: boolean;
+  count: number;
   onClick: () => void;
-}> = ({ tabKey, isActive, onClick }) => {
+}> = ({ tabKey, isActive, count, onClick }) => {
   const config = getTabConfig(tabKey);
-
   return (
     <button
       onClick={onClick}
-      className={`px-3 md:px-4 py-2 rounded-lg font-medium text-xs md:text-sm transition-all border-2 flex items-center space-x-1 md:space-x-2 ${
-        isActive
-          ? "text-white border-transparent"
-          : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
-      }`}
-      style={isActive ? { backgroundColor: config.color } : {}}
+      className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2
+        ${isActive
+          ? "text-white border-transparent shadow-md"
+          : "bg-white text-gray-600 border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+        }`}
+      style={isActive ? { backgroundColor: config.color, borderColor: config.color } : {}}
     >
-      <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">
-        {config.logo}
+      <span className="w-5 h-5 flex items-center justify-center shrink-0">{config.logo}</span>
+      <span>{getTabLabel(tabKey)}</span>
+      <span
+        className={`text-xs px-1.5 py-0.5 rounded-full font-semibold tabular-nums
+          ${isActive ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"}`}
+      >
+        {count}
       </span>
-      <span className="sm:inline">{getTabLabel(tabKey)}</span>
     </button>
   );
 };
 
+/** Bundle card */
 const BundleCard: React.FC<{
   bundle: Bundle;
   onBuyClick: (bundle: Bundle) => void;
 }> = ({ bundle, onBuyClick }) => {
   const baseTelco = (bundle.telcoCode || "").toUpperCase();
   const config = NETWORK_CONFIG[baseTelco] || NETWORK_CONFIG.OTHER;
-  const isActive = bundle.isActive !== false; // treat undefined as active
+  const isActive = bundle.isActive !== false;
+
+  const subLabel =
+    baseTelco === "AIRTELTIGO"
+      ? bundle.category === "bigdata" ? "BigTime Data" : "Ishare"
+      : bundle.telcoCode;
 
   return (
     <div
-      className={`relative border-2 rounded-xl p-4 bg-white flex flex-col justify-between transition-all duration-200 group ${isActive ? "hover:shadow-lg hover:border-gray-300" : "opacity-70"}`}
-      style={{ borderTop: `4px solid ${config.color}` }}
-      tabIndex={0}
-      aria-disabled={!isActive}
+      className={`relative rounded-2xl bg-white border-2 border-gray-100 flex flex-col transition-all duration-200
+        ${isActive ? "hover:border-gray-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer" : "opacity-60"}`}
     >
-      {/* Unavailable overlay */}
-      {!isActive && (
-        <div className="absolute inset-0 bg-gray-100 bg-opacity-80 flex flex-col items-center justify-center z-10 rounded-xl">
-          <span className="text-xs font-semibold text-gray-500 mb-1">Unavailable</span>
-          <span className="text-[10px] text-gray-400">Not for sale</span>
-        </div>
-      )}
-      <div className="flex items-center justify-between mb-2">
-        <div className={`${config.lightBg} p-1.5 rounded-md flex items-center justify-center`}>
-          {config.logo}
-        </div>
-        <span className="text-xs text-gray-500">{bundle.validity || "—"}</span>
-      </div>
+      {/* Telco colour bar */}
+      <div className="h-1 rounded-t-xl w-full" style={{ backgroundColor: config.color }} />
 
-      <div className="text-center mb-2">
-        <p className="text-sm md:text-lg font-bold text-gray-900 line-clamp-2">{bundle.name}</p>
-        <p className="text-xs font-medium text-gray-600">
-          {bundle.telcoCode}
-          {baseTelco === "AIRTELTIGO" && bundle.category === "bigdata" ? " • BigData" : ""}
-          {baseTelco === "AIRTELTIGO" && (bundle.category || "regular") === "regular" ? " • Ishare" : ""}
-        </p>
-      </div>
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className={`p-1.5 rounded-lg ${config.lightBg} shrink-0`}>
+            {config.logo}
+          </div>
+          {bundle.validity && (
+            <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {bundle.validity}
+            </span>
+          )}
+        </div>
 
-      <div className="flex justify-between items-center gap-2 mt-2">
-        <span className="text-xs md:text-sm font-semibold text-gray-900">
-          ₵{bundle.price?.toFixed(2) || "0.00"}
-        </span>
-        {isActive ? (
-          <button
-            onClick={() => onBuyClick(bundle)}
-            className="bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-400"
-            style={{ backgroundColor: config.color }}
-            aria-label={`Buy ${bundle.name}`}
-          >
-            Buy
-          </button>
-        ) : (
-          <button
-            disabled
-            className="bg-gray-300 text-gray-500 px-3 py-1.5 rounded-md text-xs font-semibold cursor-not-allowed opacity-80 border border-gray-200"
-            title="This bundle is currently unavailable"
-            aria-label={`Unavailable: ${bundle.name}`}
-          >
-            Unavailable
-          </button>
-        )}
+        {/* Name + sublabel */}
+        <div className="flex-1">
+          <p className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">{bundle.name}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{subLabel}</p>
+        </div>
+
+        {/* Price + CTA */}
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          <span className="text-base font-bold text-gray-900 tabular-nums">
+            ₵{(bundle.price ?? 0).toFixed(2)}
+          </span>
+
+          {isActive ? (
+            <button
+              onClick={() => onBuyClick(bundle)}
+              aria-label={`Buy ${bundle.name}`}
+              className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-all hover:opacity-90 active:scale-95 shadow-sm"
+              style={{ backgroundColor: config.color }}
+            >
+              Buy
+            </button>
+          ) : (
+            <span className="text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
+              Unavailable
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
+/** Stat pill in the welcome section */
+const StatPill: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({
+  icon, label, value,
+}) => (
+  <div className="flex items-center gap-2.5 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm">
+    <span className="text-blue-500">{icon}</span>
+    <span className="text-sm text-gray-500">{label}</span>
+    <span className="text-sm font-bold text-gray-900">{value}</span>
+  </div>
+);
+
+/** Full-screen loading */
 const LoadingSpinner: React.FC = () => (
-  <div className="flex justify-center items-center min-h-screen text-gray-600">
-    <div className="text-center">
-      <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-      <p>Loading dashboard...</p>
+  <div className="flex justify-center items-center min-h-screen bg-gray-50">
+    <div className="text-center space-y-4">
+      <div className="relative mx-auto w-14 h-14">
+        <div className="absolute inset-0 rounded-full border-4 border-gray-100" />
+        <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+      </div>
+      <p className="text-sm text-gray-400 font-medium">Loading dashboard…</p>
     </div>
   </div>
 );
 
+/** Full-screen error */
 const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => (
-  <div className="flex justify-center items-center min-h-screen text-red-600">
-    <div className="text-center">
-      <p className="text-xl font-semibold mb-4">Error: {message}</p>
+  <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
+    <div className="text-center max-w-sm space-y-4">
+      <div className="mx-auto w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
+        <AlertCircle className="w-6 h-6 text-red-500" />
+      </div>
+      <div>
+        <p className="text-base font-semibold text-gray-800 mb-1">Something went wrong</p>
+        <p className="text-sm text-gray-500">{message}</p>
+      </div>
       <button
         onClick={() => window.location.reload()}
-        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+        className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
       >
-        Retry
+        Try again
       </button>
     </div>
   </div>
 );
 
-const WhatsAppButton: React.FC = () => {
-  const [showMenu, setShowMenu] = useState(false);
+/** Floating WhatsApp FAB */
+const WhatsAppFab: React.FC = () => {
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-      {showMenu && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-slide-up">
+      {/* Menu */}
+      <div
+        className={`flex flex-col gap-1 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transition-all duration-200 origin-bottom-right
+          ${open ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}
+      >
+        <a
+          href={WHATSAPP_CHANNEL_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-5 py-3.5 hover:bg-green-50 transition-colors border-b border-gray-50"
+        >
+          <FaWhatsapp className="w-4 h-4 text-green-500 shrink-0" />
+          <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Join our channel</span>
+        </a>
+        <a
+          href={`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-5 py-3.5 hover:bg-green-50 transition-colors"
+        >
+          <FaWhatsapp className="w-4 h-4 text-green-500 shrink-0" />
+          <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Contact support</span>
+        </a>
+      </div>
+
+      {/* FAB */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="WhatsApp menu"
+        className={`w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:shadow-xl
+          ${open ? "rotate-180" : ""}`}
+      >
+        <FaWhatsapp className={`w-6 h-6 transition-transform duration-200 ${open ? "scale-90" : ""}`} />
+      </button>
+    </div>
+  );
+};
+
+/** Delivery notice modal */
+const DeliveryNoticeModal: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => (
+  <div
+    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+    onClick={onDismiss}
+  >
+    <div
+      className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Icon header */}
+      <div className="flex flex-col items-center pt-8 pb-5 px-6 text-center border-b border-gray-100">
+        <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+          <Clock className="w-7 h-7 text-blue-600" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">Delivery Timeline</h2>
+        <p className="text-sm text-gray-500 mt-1">What to expect after payment</p>
+      </div>
+
+      <div className="px-6 py-5 space-y-4">
+        {/* Timeline */}
+        <div className="flex items-start gap-3 bg-blue-50 rounded-xl p-4">
+          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />
+          <p className="text-sm text-gray-700 leading-relaxed">
+            Your data bundle will be delivered within{" "}
+            <span className="font-bold text-blue-600">10 – 20 minutes</span> of successful payment confirmation.
+          </p>
+        </div>
+
+        {/* WhatsApp CTA */}
+        <div className="flex items-center justify-between bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+          <p className="text-xs text-gray-600 font-medium">Get updates & offers</p>
           <a
             href={WHATSAPP_CHANNEL_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors border-b border-gray-100 whitespace-nowrap"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
           >
-            <FaWhatsapp className="w-5 h-5 text-green-500" />
-            <span className="text-sm font-medium text-gray-700">Join Our Channel</span>
-          </a>
-          <a
-            href={`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors whitespace-nowrap"
-          >
-            <FaWhatsapp className="w-5 h-5 text-green-500" />
-            <span className="text-sm font-medium text-gray-700">Contact Support</span>
+            <FaWhatsapp className="w-3 h-3" />
+            Join Channel
           </a>
         </div>
-      )}
+      </div>
 
-      <button
-        onClick={() => setShowMenu(!showMenu)}
-        className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 hover:shadow-xl"
-        aria-label="WhatsApp menu"
-      >
-        <FaWhatsapp className="w-6 h-6" />
-      </button>
+      <div className="px-6 pb-6">
+        <button
+          onClick={onDismiss}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+        >
+          Got it, let&apos;s go!
+        </button>
+      </div>
     </div>
-  );
-};
+  </div>
+);
 
 // ============================================================================
-// MAIN
+// MAIN DASHBOARD
 // ============================================================================
 
 export default function Dashboard() {
   const router = useRouter();
 
-  const [userData, setUserData] = useState<UserProfile | null>(null);
-  const [bundles, setBundles] = useState<Bundle[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-
-  // ✅ default to AirtelTigo Ishare tab (or change to MTN if you want)
-  const [selectedTab, setSelectedTab] = useState<string>(TAB_KEYS.AT_ISHARE);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [userData, setUserData]           = useState<UserProfile | null>(null);
+  const [bundles, setBundles]             = useState<Bundle[]>([]);
+  const [orders, setOrders]               = useState<Order[]>([]);
+  const [selectedTab, setSelectedTab]     = useState<string>(TAB_KEYS.AT_ISHARE);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-
-  const [authorized, setAuthorized] = useState(false);
+  const [authorized, setAuthorized]       = useState(false);
   const [showDeliveryNotice, setShowDeliveryNotice] = useState(true);
 
-  // ✅ Auth guard + token expiry auto logout + cross-tab sync
+  // Auth guard
   useEffect(() => {
     let timer: number | undefined;
 
     const checkAuth = () => {
       const token = localStorage.getItem("authToken");
-      const user = localStorage.getItem("user");
+      const user  = localStorage.getItem("user");
 
-      if (!token || !user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (isTokenExpired(token)) {
-        logout(router);
-        return;
-      }
+      if (!token || !user) { router.replace("/login"); return; }
+      if (isTokenExpired(token)) { logout(router); return; }
 
       const expMs = getTokenExpiryMs(token);
       if (expMs) {
@@ -330,10 +408,7 @@ export default function Dashboard() {
 
       try {
         const parsed = JSON.parse(user);
-        if (parsed?.role === "admin") {
-          router.replace("/dashboard/admin");
-          return;
-        }
+        if (parsed?.role === "admin") { router.replace("/dashboard/admin"); return; }
         setAuthorized(true);
       } catch {
         router.replace("/login");
@@ -343,10 +418,8 @@ export default function Dashboard() {
     checkAuth();
 
     const onAuthChanged = () => {
-      const token = localStorage.getItem("authToken");
-      if (!token) router.replace("/login");
+      if (!localStorage.getItem("authToken")) router.replace("/login");
     };
-
     window.addEventListener("userAuthChanged", onAuthChanged);
 
     return () => {
@@ -355,7 +428,7 @@ export default function Dashboard() {
     };
   }, [router]);
 
-  // ✅ Fetch dashboard data
+  // Data fetch
   useEffect(() => {
     if (!authorized) return;
 
@@ -377,8 +450,7 @@ export default function Dashboard() {
           ),
           apiCache.getOrFetch(
             "orders-list",
-            () =>
-              authFetch(router, `${API_BASE}/api/orders?page=1&limit=10`).then((r) => r.json()),
+            () => authFetch(router, `${API_BASE}/api/orders?page=1&limit=10`).then((r) => r.json()),
             CACHE_TTL.MEDIUM
           ),
         ]);
@@ -386,9 +458,10 @@ export default function Dashboard() {
         setUserData(userJson?.data || userJson);
         setBundles(bundlesJson?.data?.data || []);
         setOrders(ordersJson?.data?.orders || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "An unexpected error occurred";
         console.error("Dashboard fetch error:", err);
-        setError(err?.message || "An unexpected error occurred");
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -397,57 +470,42 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [authorized, router]);
 
-  // ✅ Group bundles into tabs (Ishare vs BigData vs MTN vs Telecel...)
-  const bundlesByTab = useMemo(() => {
-    return bundles.reduce((acc: Record<string, Bundle[]>, b) => {
-      const key = getTabKeyForBundle(b);
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(b);
-      return acc;
-    }, {});
-  }, [bundles]);
+  // Bundle → tab grouping
+  const bundlesByTab = useMemo(
+    () =>
+      bundles.reduce<Record<string, Bundle[]>>((acc, b) => {
+        const key = getTabKeyForBundle(b);
+        (acc[key] ||= []).push(b);
+        return acc;
+      }, {}),
+    [bundles]
+  );
 
-  // ✅ Force tab order to match your header (BigData at top)
+  // Ordered tab keys
   const tabOrder = useMemo(() => {
-    const keys = Object.keys(bundlesByTab);
-
-    const ordered = [
-      TAB_KEYS.AT_ISHARE, // AirtelTigo regular
-      ...(bundlesByTab[TAB_KEYS.AT_BIGDATA]?.length ? [TAB_KEYS.AT_BIGDATA] : []),
+    const preferredOrder = [
+      TAB_KEYS.AT_ISHARE,
+      TAB_KEYS.AT_BIGDATA,
       "MTN",
       "TELECEL",
       "VODAFONE",
-      ...keys.filter(
-        (k) =>
-          ![
-            TAB_KEYS.AT_ISHARE,
-            TAB_KEYS.AT_BIGDATA,
-            "MTN",
-            "TELECEL",
-            "VODAFONE",
-          ].includes(k)
-      ),
     ];
-
-    return Array.from(new Set(ordered)).filter((k) => bundlesByTab[k]?.length);
+    const others = Object.keys(bundlesByTab).filter((k) => !preferredOrder.includes(k));
+    return [...preferredOrder, ...others].filter((k) => bundlesByTab[k]?.length);
   }, [bundlesByTab]);
 
-  // ✅ Ensure selected tab exists
+  // Fallback tab selection
   useEffect(() => {
     if (!tabOrder.length) return;
-
     if (!bundlesByTab[selectedTab]?.length) {
-      // prefer Ishare then BigData then first available
-      const fallback =
+      setSelectedTab(
         (bundlesByTab[TAB_KEYS.AT_ISHARE]?.length && TAB_KEYS.AT_ISHARE) ||
         (bundlesByTab[TAB_KEYS.AT_BIGDATA]?.length && TAB_KEYS.AT_BIGDATA) ||
-        tabOrder[0];
-
-      setSelectedTab(fallback);
+        tabOrder[0]
+      );
     }
   }, [tabOrder, bundlesByTab, selectedTab]);
 
-  // Handlers
   const handleBuyClick = useCallback((bundle: Bundle) => {
     setSelectedBundle(bundle);
     setIsOrderModalOpen(true);
@@ -458,151 +516,131 @@ export default function Dashboard() {
     setSelectedBundle(null);
   }, []);
 
-  // Delivery Notice Modal
-  const DeliveryNoticeModal: React.FC = () => (
-    <div
-      className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4 transition-opacity duration-300 ${
-        showDeliveryNotice ? "opacity-100" : "opacity-0 pointer-events-none"
-      }`}
-      onClick={() => setShowDeliveryNotice(false)}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 p-6 text-white text-center">
-          <div className="flex justify-center mb-3">
-            <Clock className="w-12 h-12 text-blue-100" />
-          </div>
-          <h2 className="text-2xl font-bold">Delivery Timeline</h2>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4">
-            <p className="text-gray-900 font-semibold mb-3">Bundle Delivery Assurance</p>
-            <p className="text-gray-700 leading-relaxed text-sm">
-              We are committed to delivering your data bundle within{" "}
-              <span className="font-bold text-blue-600">10 to 20 minutes</span> of successful
-              payment confirmation.
-            </p>
-          </div>
-
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
-            <p className="text-xs text-green-900 mb-2">
-              <span className="font-semibold">Stay Updated:</span> Join our WhatsApp channel for
-              the latest updates, offers, and support!
-            </p>
-            <a
-              href={WHATSAPP_CHANNEL_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded transition-colors"
-            >
-              <FaWhatsapp className="w-3 h-3" />
-              Join Channel
-            </a>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <button
-            onClick={() => setShowDeliveryNotice(false)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
-          >
-            Got It, Let&apos;s Get Started
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Loading / Error
   if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorDisplay message={error} />;
+  if (error)   return <ErrorDisplay message={error} />;
   if (!userData) return null;
 
-  const userName = getUserDisplayName(userData);
-  const lastOrderDate = (orders as any)[0]?.createdAt
-    ? new Date((orders as any)[0].createdAt).toLocaleDateString()
-    : "N/A";
+  const userName     = getUserDisplayName(userData);
+  const initials     = getInitials(userName);
+  const lastOrderDate =
+    (orders as { createdAt?: string }[])[0]?.createdAt
+      ? new Date((orders as { createdAt?: string }[])[0].createdAt!).toLocaleDateString("en-GH", {
+          day: "numeric", month: "short", year: "numeric",
+        })
+      : "None yet";
+
+  const currentBundles = bundlesByTab[selectedTab] ?? [];
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8">
-        {/* Welcome */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {userName}!
-          </h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8">
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <Package className="w-4 h-4 text-blue-600" />
-              <span>
-                Total Purchases:{" "}
-                <span className="font-semibold text-gray-900">{orders.length}</span>
-              </span>
+        {/* ── Welcome ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-base font-bold shrink-0">
+              {initials}
             </div>
+            <div>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Welcome back</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">{userName}</h1>
+            </div>
+          </div>
 
-            <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-blue-600" />
-              <span>
-                Last Purchase:{" "}
-                <span className="font-semibold text-gray-900">{lastOrderDate}</span>
-              </span>
-            </div>
+          {/* Stats */}
+          <div className="flex flex-wrap gap-3">
+            <StatPill
+              icon={<ShoppingBag className="w-4 h-4" />}
+              label="Purchases"
+              value={orders.length.toString()}
+            />
+            <StatPill
+              icon={<Clock className="w-4 h-4" />}
+              label="Last purchase"
+              value={lastOrderDate}
+            />
           </div>
         </div>
 
-        {/* Bundles */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6 mb-6 md:mb-8">
-          <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900">Available Bundles</h2>
+        {/* ── Bundle Store ─────────────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {/* Panel header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Wifi className="w-5 h-5 text-blue-500" />
+              <h2 className="text-base font-semibold text-gray-900">Available Bundles</h2>
+            </div>
 
+            {/* Network tabs */}
             <div className="flex flex-wrap gap-2">
               {tabOrder.map((tabKey) => (
-                <NetworkFilterButton
+                <NetworkTab
                   key={tabKey}
                   tabKey={tabKey}
                   isActive={selectedTab === tabKey}
+                  count={bundlesByTab[tabKey]?.length ?? 0}
                   onClick={() => setSelectedTab(tabKey)}
                 />
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {bundlesByTab[selectedTab]?.map((bundle) => (
-              <BundleCard key={bundle._id} bundle={bundle} onBuyClick={handleBuyClick} />
-            ))}
+          {/* Bundle grid */}
+          <div className="p-5">
+            {currentBundles.length === 0 ? (
+              <div className="py-16 text-center">
+                <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">No bundles available for this network</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {currentBundles.map((bundle) => (
+                  <BundleCard key={bundle._id} bundle={bundle} onBuyClick={handleBuyClick} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Recent purchase history */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900">Recent Purchase History</h2>
-
+        {/* ── Recent Orders ────────────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-blue-500" />
+              <h2 className="text-base font-semibold text-gray-900">Recent Purchases</h2>
+            </div>
             <a
               href="dashboard/user/orders"
-              className="text-sm md:text-base text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
-              View All →
+              View all
+              <ChevronRight className="w-4 h-4" />
             </a>
           </div>
 
-          <OrdersTable
-            orders={orders}
-            page={1}
-            pageSize={10}
-            totalOrders={orders.length}
-            totalPages={1}
-            setPage={() => {}}
-          />
+          <div className="p-5">
+            {orders.length === 0 ? (
+              <div className="py-12 text-center">
+                <ShoppingBag className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">No purchases yet — buy your first bundle above!</p>
+              </div>
+            ) : (
+              <OrdersTable
+                orders={orders}
+                page={1}
+                pageSize={10}
+                totalOrders={orders.length}
+                totalPages={1}
+                setPage={() => {}}
+              />
+            )}
+          </div>
         </div>
       </div>
 
-      <WhatsAppButton />
+      {/* WhatsApp FAB */}
+      <WhatsAppFab />
 
       {/* Order Modal */}
       {selectedBundle && (
@@ -616,17 +654,9 @@ export default function Dashboard() {
       )}
 
       {/* Delivery Notice */}
-      {authorized && <DeliveryNoticeModal />}
-
-      <style>{`
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
+      {authorized && showDeliveryNotice && (
+        <DeliveryNoticeModal onDismiss={() => setShowDeliveryNotice(false)} />
+      )}
     </div>
   );
 }

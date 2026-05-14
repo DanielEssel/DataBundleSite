@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -15,11 +15,17 @@ import {
   CreditCard,
   ShieldCheck,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
+  ArrowRight,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OrderModalProps {
   bundleId: string;
@@ -29,6 +35,89 @@ interface OrderModalProps {
   onClose: () => void;
 }
 
+type Step = "form" | "success" | "error";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const isValidPhone = (phone: string) =>
+  /^(\+233|0)[0-9]{9}$/.test(phone.trim());
+
+/** Format a raw number as user types: insert spaces for readability */
+const formatPhoneDisplay = (raw: string) => {
+  // Strip everything except digits and leading +
+  const cleaned = raw.replace(/(?!^\+)[^\d]/g, "");
+  return cleaned;
+};
+
+// ─── Step screens ─────────────────────────────────────────────────────────────
+
+function SuccessScreen({ paymentUrl }: { paymentUrl: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-6 text-center space-y-5">
+      <div className="relative">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+        </div>
+        <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full animate-ping opacity-60" />
+      </div>
+      <div>
+        <p className="text-base font-bold text-gray-900">Order placed!</p>
+        <p className="text-sm text-gray-500 mt-1">Redirecting you to Paystack to complete payment…</p>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Taking you to payment
+      </div>
+      <a
+        href={paymentUrl}
+        className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline underline-offset-2 font-medium"
+      >
+        <ExternalLink className="w-3 h-3" />
+        Click here if not redirected
+      </a>
+    </div>
+  );
+}
+
+function ErrorScreen({
+  message,
+  onRetry,
+  onClose,
+}: {
+  message: string;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-6 text-center space-y-5">
+      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+        <AlertCircle className="w-8 h-8 text-red-500" />
+      </div>
+      <div>
+        <p className="text-base font-bold text-gray-900">Something went wrong</p>
+        <p className="text-sm text-gray-500 mt-1 leading-relaxed">{message}</p>
+      </div>
+      <div className="flex gap-3 w-full">
+        <Button
+          variant="outline"
+          onClick={onClose}
+          className="flex-1 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={onRetry}
+          className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+        >
+          Try again
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function OrderModal({
   bundleId,
   bundleName,
@@ -37,49 +126,65 @@ export default function OrderModal({
   onClose,
 }: OrderModalProps) {
   const router = useRouter();
+
+  const [step, setStep]                     = useState<Step>("form");
   const [recipientPhone, setRecipientPhone] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+  const [loading, setLoading]               = useState(false);
+  const [errorMsg, setErrorMsg]             = useState("");
+  const [paymentUrl, setPaymentUrl]         = useState("");
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset on open
+  useEffect(() => {
+    if (isOpen) {
+      setStep("form");
+      setRecipientPhone("");
+      setLoading(false);
+      setErrorMsg("");
+      setPaymentUrl("");
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const phoneValid = isValidPhone(recipientPhone);
+  const canSubmit  = phoneValid && !loading;
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRecipientPhone(formatPhoneDisplay(e.target.value));
+  };
 
   const handleOrder = async () => {
-    setMessage("");
-    setMessageType("");
-
     const token = localStorage.getItem("authToken");
     if (!token) {
-      setMessage("Please log in to continue");
-      setMessageType("error");
+      setErrorMsg("Please log in to continue.");
+      setStep("error");
       setTimeout(() => router.push("/login"), 2000);
       return;
     }
 
-    if (!recipientPhone) {
-      setMessage("Please enter recipient phone number");
-      setMessageType("error");
-      return;
-    }
-
-    const payload = { bundleId, recipientPhone, paymentMethod: "momo" };
+    setLoading(true);
 
     try {
-      setLoading(true);
-
       const res = await fetch(`${API_URL}/api/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          bundleId,
+          recipientPhone: recipientPhone.trim(),
+          paymentMethod: "momo",
+        }),
       });
 
       const data = await res.json();
 
       if (res.status === 401) {
         localStorage.removeItem("authToken");
-        setMessage("Session expired. Please log in again.");
-        setMessageType("error");
+        setErrorMsg("Session expired. Please log in again.");
+        setStep("error");
         setTimeout(() => router.push("/login"), 2000);
         return;
       }
@@ -88,161 +193,199 @@ export default function OrderModal({
         throw new Error(data.message || "Failed to create order.");
       }
 
-      const paymentUrl = data.data?.payment?.authorizationUrl;
-      if (!paymentUrl) throw new Error("Missing payment URL from server.");
+      const url = data.data?.payment?.authorizationUrl;
+      if (!url) throw new Error("Missing payment URL from server.");
 
-      setMessage("Order created successfully! Redirecting to payment...");
-      setMessageType("success");
-      setTimeout(() => (window.location.href = paymentUrl), 1200);
-    } catch (error: any) {
-      setMessage(error.message || "Something went wrong. Please try again.");
-      setMessageType("error");
+      setPaymentUrl(url);
+      setStep("success");
+      setTimeout(() => (window.location.href = url), 2000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setErrorMsg(msg);
+      setStep("error");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRetry = () => {
+    setStep("form");
+    setErrorMsg("");
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className="
-          p-0
-          w-[95vw]
-          max-w-md
-          mx-auto
-          overflow-hidden
-          border-none
-          shadow-2xl
-          rounded-2xl
-          max-h-[90vh]
-          overflow-y-auto
-        "
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl md:text-2xl font-bold">
-              Complete Your Purchase
-            </DialogTitle>
-            <p className="text-white/90 text-xs sm:text-sm mt-1">
-              You're one step away from activating your bundle
-            </p>
-          </DialogHeader>
-        </div>
+    <Dialog open={isOpen} onOpenChange={loading ? undefined : onClose}>
+      <DialogContent className="p-0 w-[95vw] max-w-md mx-auto border-none shadow-2xl rounded-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
 
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-white">
-          {/* Bundle Summary */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 sm:p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs sm:text-sm text-blue-700 font-medium">
-                Bundle Name
-              </span>
-              <span className="text-sm sm:text-base font-semibold text-gray-900 text-right break-words max-w-[60%]">
-                {bundleName}
-              </span>
+        {/* Non-form steps — no header chrome needed */}
+        {step === "success" && <SuccessScreen paymentUrl={paymentUrl} />}
+        {step === "error"   && <ErrorScreen message={errorMsg} onRetry={handleRetry} onClose={onClose} />}
+
+        {/* ── Form step ─────────────────────────────────────────────────── */}
+        {step === "form" && (
+          <>
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+              <DialogHeader>
+                <DialogTitle className="text-base font-semibold text-gray-900">
+                  Complete purchase
+                </DialogTitle>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Enter the recipient number to proceed
+                </p>
+              </DialogHeader>
+
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 mt-4">
+                {["Enter number", "Pay"].map((label, i) => {
+                  const done   = i === 0 && phoneValid;
+                  const active = (i === 0 && !phoneValid) || (i === 1 && phoneValid);
+                  return (
+                    <React.Fragment key={label}>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all
+                          ${done    ? "bg-emerald-500 text-white"
+                          : active  ? "bg-blue-600 text-white"
+                          :           "bg-gray-100 text-gray-400"}`}>
+                          {done ? "✓" : i + 1}
+                        </div>
+                        <span className={`text-[10px] font-medium hidden sm:block transition-colors
+                          ${done ? "text-emerald-600" : active ? "text-blue-600" : "text-gray-400"}`}>
+                          {label}
+                        </span>
+                      </div>
+                      {i < 1 && <div className={`flex-1 h-px transition-colors ${done ? "bg-emerald-300" : "bg-gray-100"}`} />}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm text-blue-700 font-medium">
-                Amount
-              </span>
-              <span className="text-xl sm:text-2xl font-bold text-blue-600">
-                ₵{price.toFixed(2)}
-              </span>
-            </div>
-          </div>
 
-          {/* Recipient Phone */}
-          <div className="space-y-2">
-            <label className="text-sm sm:text-base font-semibold text-gray-700 flex items-center gap-2">
-              <Phone className="w-4 h-4 text-blue-600" />
-              Recipient Phone Number
-            </label>
-            <Input
-              type="tel"
-              placeholder="e.g. +233555168047"
-              value={recipientPhone}
-              onChange={(e) => setRecipientPhone(e.target.value)}
-              className="border-2 border-gray-200 focus:border-blue-500 py-5 sm:py-6 text-base rounded-xl transition-all"
-            />
-            <p className="text-xs text-gray-500 flex items-start gap-1">
-              <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-              <span>Enter the phone number that will receive the data bundle.</span>
-            </p>
-          </div>
+            <div className="px-6 py-5 space-y-4 bg-white">
 
-          {/* Secure Payment Notice */}
-          <div className="flex items-center gap-2 sm:gap-3 bg-blue-50 border border-blue-100 rounded-lg p-2 sm:p-3">
-            <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-blue-800">
-                Secure Payment
-              </p>
-              <p className="text-xs text-blue-700">
-                Protected by Paystack encryption
-              </p>
-            </div>
-          </div>
-
-          {/* Message Feedback */}
-          {message && (
-            <div
-              className={`flex items-start gap-2 sm:gap-3 p-3 rounded-xl border text-xs sm:text-sm ${
-                messageType === "success"
-                  ? "bg-green-50 border-green-200 text-green-800"
-                  : "bg-red-50 border-red-200 text-red-800"
-              }`}
-            >
-              {messageType === "success" ? (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              )}
-              <p className="font-medium">{message}</p>
-            </div>
-          )}
-
-          {/* Important Warning */}
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-red-500 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <p className="text-sm font-bold text-red-900">
-                ⚠️ Important Notice
-              </p>
-            </div>
-            <p className="text-sm text-red-800 leading-relaxed">
-              <span className="font-semibold">Make sure the number entered is correct.</span> There will be <span className="font-semibold underline">no reversal or refund</span> after completing the transaction.
-            </p>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button
-              onClick={onClose}
-              disabled={loading}
-              variant="outline"
-              className="w-full sm:flex-1 py-5 sm:py-6 text-sm sm:text-base font-semibold border-2 hover:bg-blue-50 text-blue-700 border-blue-200 rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleOrder}
-              disabled={loading || !recipientPhone}
-              className="w-full sm:flex-1 py-5 sm:py-6 text-sm sm:text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all rounded-xl"
-            >
-              {loading ? (
-                <div className="flex items-center gap-2 justify-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Processing...
+              {/* Order summary */}
+              <div className="rounded-xl border border-gray-100 overflow-hidden">
+                <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
+                  <span className="text-xs font-medium text-gray-500">Bundle</span>
+                  <span className="text-sm font-semibold text-gray-800 text-right max-w-[65%] leading-snug">
+                    {bundleName}
+                  </span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 justify-center">
-                  <CreditCard className="w-5 h-5" />
-                  Pay ₵{price.toFixed(2)}
+                <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100">
+                  <span className="text-xs font-medium text-gray-500">Total</span>
+                  <span className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">
+                    ₵{price.toFixed(2)}
+                  </span>
                 </div>
+              </div>
+
+              {/* Phone input */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="recipient-phone"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 uppercase tracking-wide"
+                >
+                  <Phone className="w-3.5 h-3.5 text-gray-400" />
+                  Recipient phone number
+                </label>
+                <div className="relative">
+                  <Input
+                    id="recipient-phone"
+                    ref={inputRef}
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="0551234567"
+                    value={recipientPhone}
+                    onChange={handlePhoneChange}
+                    disabled={loading}
+                    maxLength={13}
+                    className={`pr-10 py-5 text-base font-medium tracking-wide rounded-xl border-2 transition-all outline-none
+                      ${recipientPhone && !phoneValid
+                        ? "border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100 bg-red-50/30"
+                        : phoneValid
+                          ? "border-emerald-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 bg-emerald-50/30"
+                          : "border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      }`}
+                  />
+                  {recipientPhone && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 transition-all">
+                      {phoneValid
+                        ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        : <AlertCircle  className="w-5 h-5 text-red-400" />}
+                    </span>
+                  )}
+                </div>
+                <p className={`text-xs leading-relaxed transition-colors
+                  ${recipientPhone && !phoneValid ? "text-red-500" : "text-gray-400"}`}>
+                  {recipientPhone && !phoneValid
+                    ? "Must be a valid Ghanaian number starting with 0 or +233"
+                    : "Enter the number that should receive the data bundle"}
+                </p>
+              </div>
+
+
+              {/* Important notice */}
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div>
+                  <p className="text-xs font-bold text-amber-800">Important Notice</p>
+                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    Make sure the number entered is correct. There will be{" "}
+                    <span className="font-bold">no reversal or refund</span> after completing the transaction.
+                  </p>
+                </div>
+              </div>
+
+              {/* Security note */}
+              <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0" />
+                <p className="text-xs text-gray-500">
+                  Secured by <span className="font-semibold text-gray-700">Paystack</span> · end-to-end encrypted
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <Button
+                  onClick={onClose}
+                  disabled={loading}
+                  variant="outline"
+                  className="flex-1 py-5 text-sm font-semibold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleOrder}
+                  disabled={!canSubmit}
+                  className="flex-1 py-5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing…
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      Pay ₵{price.toFixed(2)}
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
+                  )}
+                </Button>
+              </div>
+
+              {/* Disabled pay button hint */}
+              {!canSubmit && !loading && (
+                <p className="text-center text-xs text-gray-400">
+                  Enter a valid phone number to continue
+                </p>
               )}
-            </Button>
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
