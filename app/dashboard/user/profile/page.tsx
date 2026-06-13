@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { User, Mail, Phone, Shield, Calendar, CheckCircle, XCircle, MessageCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UserProfile {
   _id: string;
@@ -22,6 +30,8 @@ interface UserProfile {
 export default function UserProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -48,6 +58,28 @@ export default function UserProfilePage() {
       router.replace("/login");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteProfile = async () => {
+    try {
+      setDeleting(true);
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to delete profile");
+      
+      localStorage.removeItem("authToken");
+      setShowDeleteConfirm(false);
+      router.replace("/login");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete profile. Please try again.");
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -151,7 +183,10 @@ export default function UserProfilePage() {
                 <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-all shadow-sm text-sm sm:text-base">
                   Edit Profile
                 </button>
-                <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-all text-sm sm:text-base">
+                <button 
+                  onClick={() => router.push("/forgot-password")}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-all text-sm sm:text-base"
+                >
                   Change Password
                 </button>
               </div>
@@ -219,6 +254,53 @@ export default function UserProfilePage() {
             </a>
           </div>
         </div>
+
+        {/* Danger Zone */}
+        <div className="mt-6 md:mt-8 bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 border border-red-100">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-red-900">Danger Zone</h3>
+              <p className="text-red-700 text-xs sm:text-sm mt-1">
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleting}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-md transition-all font-medium text-sm sm:text-base"
+            >
+              {deleting ? "Deleting..." : "Delete My Profile"}
+            </button>
+          </div>
+        </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Account</DialogTitle>
+              <DialogDescription className="text-base mt-4">
+                Are you absolutely sure? This action cannot be undone. Your account and all associated data will be permanently deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0 mt-6">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteProfile}
+                disabled={deleting}
+                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all font-medium text-sm"
+              >
+                {deleting ? "Deleting..." : "Yes, Delete My Profile"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
