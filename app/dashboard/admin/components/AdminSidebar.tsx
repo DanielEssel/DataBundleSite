@@ -2,224 +2,277 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingBag,
   Users,
   Package,
-  BarChart3,
-  Settings,
+  CreditCard,
+  User,
   LogOut,
   ChevronRight,
   Home,
-  CreditCard,
-  MessageSquare,
-  Shield,
+  Menu,
+  X,
+  Zap,
+  Loader2,
 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-// Reusable Provider Toggle Component
-function ProviderToggle({ router }: { router: any }) {
-  const [provider, setProvider] = useState("hubnet");
-  const [loading, setLoading] = useState(false);
+const NAV_ITEMS = [
+  { title: "Dashboard", href: "/dashboard/admin",          icon: LayoutDashboard },
+  { title: "Orders",    href: "/dashboard/admin/orders",   icon: ShoppingBag     },
+  { title: "Users",     href: "/dashboard/admin/users",    icon: Users           },
+  { title: "Payments",  href: "/dashboard/admin/payments", icon: CreditCard      },
+  { title: "Bundles",   href: "/dashboard/admin/bundles",  icon: Package         },
+  { title: "Profile",   href: "/dashboard/admin/profile",  icon: User            },
+];
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    const toast = document.createElement("div");
-    toast.innerText = message;
-    toast.className = `fixed bottom-4 right-4 p-3 rounded-lg text-white shadow-lg ${
-      type === "success" ? "bg-green-600" : "bg-red-600"
-    }`;
-    document.body.appendChild(toast);
-    setTimeout(() => document.body.removeChild(toast), 3000);
+const PROVIDERS = [
+  { value: "hubnet",      label: "Hubnet",      sub: "MTN only",      accent: "bg-blue-600"   },
+  { value: "xpresportal", label: "XpresPortal", sub: "All networks",  accent: "bg-emerald-600" },
+  { value: "spfastmtn",   label: "SPFastMTN",   sub: "MTN only",      accent: "bg-orange-500" },
+] as const;
+
+type ProviderValue = typeof PROVIDERS[number]["value"];
+
+// ─── Provider Toggle ──────────────────────────────────────────────────────────
+
+function ProviderToggle({ collapsed }: { collapsed: boolean }) {
+  const router = useRouter();
+  const [provider, setProvider] = useState<ProviderValue>("hubnet");
+  const [loading, setLoading]   = useState(false);
+  const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
   };
 
   useEffect(() => {
     authFetch(router, `${API_URL}/api/admin/get-provider`)
-      .then((res) => res.json())
-      .then((data) => data?.provider && setProvider(data.provider))
+      .then((r) => r.json())
+      .then((d) => d?.provider && setProvider(d.provider as ProviderValue))
       .catch(() => {});
   }, [router]);
 
-  const handleChange = async (newProvider: string) => {
+  const handleChange = async (val: ProviderValue) => {
+    if (val === provider || loading) return;
     setLoading(true);
     try {
       const res = await authFetch(router, `${API_URL}/api/admin/set-provider`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: newProvider }),
+        body: JSON.stringify({ provider: val }),
       });
       if (res.ok) {
-        setProvider(newProvider);
-        showToast(`Provider switched to ${newProvider}`);
+        setProvider(val);
+        showToast(`Switched to ${val}`);
       } else {
-        showToast("Failed to switch provider", "error");
+        showToast("Failed to switch provider", false);
       }
     } catch {
-      showToast("Failed to switch provider", "error");
+      showToast("Failed to switch provider", false);
     } finally {
       setLoading(false);
     }
   };
 
+  if (collapsed) return null;
+
+  const active = PROVIDERS.find((p) => p.value === provider);
+
   return (
-    <div className="p-4 border-t border-gray-200 mt-4">
-      <h3 className="text-sm font-semibold text-gray-600 mb-2">API Provider</h3>
-      <div className="flex flex-col gap-2">
-        <button
-          disabled={loading}
-          onClick={() => handleChange("hubnet")}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-            provider === "hubnet"
-              ? "bg-blue-600 text-white shadow"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Hubnet (MTN only)
-        </button>
-        <button
-          disabled={loading}
-          onClick={() => handleChange("xpresportal")}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-            provider === "xpresportal"
-              ? "bg-green-600 text-white shadow"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          XpresPortal (All networks)
-        </button>
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <div className="flex items-center gap-1.5 mb-3 px-1">
+        <Zap className="w-3.5 h-3.5 text-gray-400" />
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">API Provider</p>
       </div>
-      <p className="text-xs text-gray-500 mt-1">
-        Current: <span className="font-semibold">{provider}</span>
-      </p>
+
+      <div className="space-y-1.5">
+        {PROVIDERS.map((p) => {
+          const isActive = provider === p.value;
+          return (
+            <button
+              key={p.value}
+              disabled={loading}
+              onClick={() => handleChange(p.value)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all
+                ${isActive
+                  ? `${p.accent} text-white shadow-sm`
+                  : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100"
+                } disabled:opacity-60`}
+            >
+              <div className="text-left">
+                <p className="font-semibold leading-none">{p.label}</p>
+                <p className={`text-[10px] mt-0.5 ${isActive ? "text-white/70" : "text-gray-400"}`}>{p.sub}</p>
+              </div>
+              {loading && isActive && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {isActive && !loading && <span className="text-[10px] font-bold opacity-80">Active</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Inline toast */}
+      {toast && (
+        <p className={`text-xs font-medium mt-2 px-1 ${toast.ok ? "text-emerald-600" : "text-red-500"}`}>
+          {toast.ok ? "✓" : "✕"} {toast.msg}
+        </p>
+      )}
     </div>
   );
 }
 
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
+
 export default function AdminSidebar() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]         = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
+  const router   = useRouter();
 
+  // Lock body scroll when mobile drawer is open
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (open && !target.closest("aside") && !target.closest("button[aria-label='menu']")) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [open]);
-
-  const menuItems = [
-    { title: "Dashboard", href: "/dashboard/admin", icon: <LayoutDashboard className="w-5 h-5" /> },
-    { title: "Orders", href: "/dashboard/admin/orders", icon: <ShoppingBag className="w-5 h-5" /> },
-    { title: "Users", href: "/dashboard/admin/users", icon: <Users className="w-5 h-5" /> },
-    { title: "Payments", href: "/dashboard/admin/payments", icon: <CreditCard className="w-5 h-5" /> },
-    { title: "Bundles", href: "/dashboard/admin/bundles", icon: <Package className="w-5 h-5" /> },
-    { title: "Profile", href: "/dashboard/admin/profile", icon: <MessageSquare className="w-5 h-5" /> },
-  ];
 
   const handleLogout = () => {
     localStorage.clear();
-    document.cookie = `authToken=; path=/; max-age=0`;
-    document.cookie = `user=; path=/; max-age=0`;
+    ["authToken", "user"].forEach((k) => {
+      document.cookie = `${k}=; path=/; max-age=0`;
+    });
     window.dispatchEvent(new Event("userAuthChanged"));
     router.push("/login");
     setOpen(false);
   };
 
+  const isActive = (href: string) =>
+    href === "/dashboard/admin" ? pathname === href : pathname.startsWith(href);
+
   return (
     <>
+      {/* ── Mobile hamburger ─────────────────────────────────────────────── */}
       <button
-        className="md:hidden fixed top-4 left-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg z-50 shadow-lg"
-        onClick={() => setOpen(!open)}
-        aria-label="menu"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-xl shadow-md border border-gray-100 text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+        onClick={() => setOpen(true)}
+        aria-label="Open menu"
       >
-        {open ? "✕" : "☰"}
+        <Menu className="w-5 h-5" />
       </button>
 
-      {open && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" onClick={() => setOpen(false)} />}
+      {/* ── Backdrop ─────────────────────────────────────────────────────── */}
+      <div
+        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300
+          ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setOpen(false)}
+      />
 
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed md:static top-0 left-0 h-screen bg-gradient-to-b from-white to-gray-50 border-r border-gray-200 z-40 transition-all duration-300 ease-in-out
-        ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        ${collapsed ? "w-20" : "w-64"}`}
+        className={`fixed md:static top-0 left-0 h-screen bg-white border-r border-gray-100 z-50 md:z-auto flex flex-col shadow-xl md:shadow-none transition-all duration-300 ease-in-out
+          ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${collapsed ? "w-[72px]" : "w-64"}`}
       >
-        <div className="p-4 border-b border-gray-200">
-          <div className={`flex items-center justify-between ${collapsed ? "flex-col" : ""}`}>
-            <Link href="/dashboard/admin" className={`flex items-center gap-3 ${collapsed ? "flex-col" : ""}`}>
-              <div className="p-2 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg">
-                <Shield className="w-6 h-6 text-white" />
+        {/* ── Brand ──────────────────────────────────────────────────────── */}
+        <div className={`flex items-center border-b border-gray-100 shrink-0 h-[61px] px-4 ${collapsed ? "justify-center" : "justify-between"}`}>
+          {!collapsed && (
+            <Link href="/dashboard/admin" className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                <span className="text-white text-xs font-bold">A</span>
               </div>
-              {!collapsed && (
-                <div>
-                  <h2 className="font-bold text-xl text-gray-900">Admin Panel</h2>
-                  <p className="text-xs text-gray-500">DataBundleSite</p>
-                </div>
-              )}
+              <div>
+                <p className="font-bold text-sm text-gray-900 leading-none">Admin Panel</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">DataBundleSite</p>
+              </div>
             </Link>
+          )}
+
+          <div className="flex items-center gap-1">
+            {/* Collapse toggle — desktop only */}
             <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="hidden md:block p-2 hover:bg-gray-100 rounded-lg"
+              onClick={() => setCollapsed((v) => !v)}
+              className="hidden md:flex p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              <ChevronRight className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`} />
+              <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`} />
+            </button>
+
+            {/* Close — mobile only */}
+            <button
+              onClick={() => setOpen(false)}
+              className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <nav className="p-4 overflow-y-auto h-[calc(100vh-200px)]">
-          <ul className="space-y-1">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
+        {/* ── Nav ────────────────────────────────────────────────────────── */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {!collapsed && (
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2 mb-2">
+              Navigation
+            </p>
+          )}
+
+          <ul className="space-y-0.5">
+            {NAV_ITEMS.map(({ title, href, icon: Icon }) => {
+              const active = isActive(href);
               return (
-                <li key={item.href}>
+                <li key={href}>
                   <Link
-                    href={item.href}
+                    href={href}
                     onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group
-                      ${isActive
-                        ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-600 border border-blue-100"
-                        : "text-gray-700 hover:bg-gray-100"}
-                      ${collapsed ? "justify-center" : ""}`}
+                    title={collapsed ? title : undefined}
+                    className={`group flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
+                      ${collapsed ? "justify-center" : ""}
+                      ${active
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
                   >
-                    <span className={isActive ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"}>
-                      {item.icon}
-                    </span>
-                    {!collapsed && <span className="font-medium flex-1">{item.title}</span>}
+                    <Icon className={`w-4.5 h-4.5 shrink-0 ${active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}`} />
+                    {!collapsed && <span className="flex-1">{title}</span>}
+                    {!collapsed && active && <ChevronRight className="w-3.5 h-3.5 text-blue-200" />}
                   </Link>
                 </li>
               );
             })}
           </ul>
 
-          {/* Provider Toggle */}
-          {!collapsed && <ProviderToggle router={router} />}
+          {/* Provider toggle */}
+          <ProviderToggle collapsed={collapsed} />
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <div className={`${collapsed ? "flex justify-center" : ""}`}>
-            <Link
-              href="/"
-              className={`flex items-center gap-3 text-gray-700 hover:text-blue-600 ${collapsed ? "justify-center" : ""}`}
-            >
-              <Home className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">Back to Home</span>}
-            </Link>
-            <button
-              onClick={handleLogout}
-              className={`flex items-center gap-3 text-red-600 hover:text-red-800 mt-3 ${collapsed ? "justify-center" : ""}`}
-            >
-              <LogOut className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">Logout</span>}
-            </button>
-          </div>
+        {/* ── Footer ─────────────────────────────────────────────────────── */}
+        <div className="px-3 py-3 border-t border-gray-100 shrink-0 space-y-0.5">
+          <Link
+            href="/"
+            title={collapsed ? "Back to Home" : undefined}
+            className={`group flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-all
+              ${collapsed ? "justify-center" : ""}`}
+          >
+            <Home className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-gray-600" />
+            {!collapsed && <span>Back to Home</span>}
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            title={collapsed ? "Log out" : undefined}
+            className={`group flex items-center gap-3 w-full px-2.5 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all
+              ${collapsed ? "justify-center" : ""}`}
+          >
+            <LogOut className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-red-500 transition-colors" />
+            {!collapsed && <span>Log out</span>}
+          </button>
         </div>
       </aside>
     </>
